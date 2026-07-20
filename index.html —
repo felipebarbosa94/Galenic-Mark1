@@ -1,0 +1,961 @@
+<meta charset="utf-8">
+<title>Panel KPI · Laboratorio Magistral</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-muted: #898781;
+    --surface: #f9f9f7;
+    --surface-raised: #fcfcfb;
+    --border: rgba(11,11,11,0.10);
+    --border-strong: rgba(11,11,11,0.16);
+    --grid: #e1e0d9;
+    --accent: #a8621e;
+    --accent-hover: #8c4f16;
+    --accent-wash: rgba(168,98,30,0.10);
+    --accent-ink: #fffaf4;
+    --good: #0ca30c;
+    --good-wash: rgba(12,163,12,0.10);
+    --warning: #b8791e;
+    --warning-wash: rgba(250,178,25,0.16);
+    --serious: #ec835a;
+    --serious-wash: rgba(236,131,90,0.14);
+    --critical: #d03b3b;
+    --critical-wash: rgba(208,59,59,0.10);
+    --step250: #86b6ef; --step400: #3987e5; --step550: #1c5cab; --step700: #0d366b;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(11,11,11,0.05), 0 8px 24px -12px rgba(11,11,11,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #92908a;
+      --surface: #0d0d0d; --surface-raised: #1a1a19;
+      --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+      --grid: #2c2c2a;
+      --accent: #d89552; --accent-hover: #e8ab6e; --accent-wash: rgba(216,149,82,0.14); --accent-ink: #241505;
+      --good: #2fbf4f; --good-wash: rgba(47,191,79,0.14);
+      --warning: #f0b23f; --warning-wash: rgba(240,178,63,0.16);
+      --serious: #f19a78; --serious-wash: rgba(241,154,120,0.16);
+      --critical: #e0716a; --critical-wash: rgba(224,113,106,0.16);
+      --step250: #b7d3f6; --step400: #5598e7; --step550: #2a78d6; --step700: #184f95;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ink: #ffffff; --ink-2: #c3c2b7; --ink-muted: #92908a;
+    --surface: #0d0d0d; --surface-raised: #1a1a19;
+    --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.18);
+    --grid: #2c2c2a;
+    --accent: #d89552; --accent-hover: #e8ab6e; --accent-wash: rgba(216,149,82,0.14); --accent-ink: #241505;
+    --good: #2fbf4f; --good-wash: rgba(47,191,79,0.14);
+    --warning: #f0b23f; --warning-wash: rgba(240,178,63,0.16);
+    --serious: #f19a78; --serious-wash: rgba(241,154,120,0.16);
+    --critical: #e0716a; --critical-wash: rgba(224,113,106,0.16);
+    --step250: #b7d3f6; --step400: #5598e7; --step550: #2a78d6; --step700: #184f95;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-muted: #898781;
+    --surface: #f9f9f7; --surface-raised: #fcfcfb;
+    --border: rgba(11,11,11,0.10); --border-strong: rgba(11,11,11,0.16);
+    --grid: #e1e0d9;
+    --accent: #a8621e; --accent-hover: #8c4f16; --accent-wash: rgba(168,98,30,0.10); --accent-ink: #fffaf4;
+    --good: #0ca30c; --good-wash: rgba(12,163,12,0.10);
+    --warning: #b8791e; --warning-wash: rgba(250,178,25,0.16);
+    --serious: #ec835a; --serious-wash: rgba(236,131,90,0.14);
+    --critical: #d03b3b; --critical-wash: rgba(208,59,59,0.10);
+    --step250: #86b6ef; --step400: #3987e5; --step550: #1c5cab; --step700: #0d366b;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-family: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", monospace; font-variant-numeric: tabular-nums; }
+  h1, h2, h3 { font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+  a { color: inherit; }
+  button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  .shell { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
+  .rail {
+    background: var(--surface-raised);
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; }
+  .brand .mark { font-size: 0.7rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .brand .name { font-size: 1rem; font-weight: 700; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav button {
+    display: flex; align-items: center; gap: 10px;
+    background: none; border: none; text-align: left;
+    padding: 9px 10px; border-radius: 8px; cursor: pointer;
+    color: var(--ink-2); font-size: 0.9rem; font-weight: 500;
+  }
+  .nav button svg { flex: none; opacity: 0.8; }
+  .nav button:hover { background: var(--accent-wash); color: var(--ink); }
+  .nav button[aria-current="page"] { background: var(--accent-wash); color: var(--accent); font-weight: 700; }
+  :root[data-theme="dark"] .nav button[aria-current="page"], .nav button[aria-current="page"] { color: var(--accent-hover); }
+
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    padding: 22px 28px 18px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .topbar .titles p { margin: 2px 0 0; color: var(--ink-muted); font-size: 0.85rem; }
+  .topbar .actions { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 8px; border: 1px solid var(--border-strong);
+    background: var(--surface-raised); color: var(--ink);
+    padding: 7px 13px; font-size: 0.83rem; font-weight: 600; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.ghost { border-color: transparent; background: none; }
+  .btn.ghost:hover { background: var(--accent-wash); }
+  .btn.danger:hover { border-color: var(--critical); color: var(--critical); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn svg { flex: none; }
+
+  .view { padding: 24px 28px 60px; display: flex; flex-direction: column; gap: 26px; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .section-head h2 { font-size: 1.05rem; }
+  .section-head .hint { font-size: 0.8rem; color: var(--ink-muted); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  .tile {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 15px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .tile .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); font-weight: 600; }
+  .tile .value { font-size: 1.9rem; font-weight: 700; }
+  .tile .sub { font-size: 0.78rem; color: var(--ink-2); }
+  .tile.alert .value { color: var(--critical); }
+
+  .grid-2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail { display: none; }
+    .main { padding-bottom: 64px; }
+    #mobileNav { display: flex !important; }
+  }
+  #mobileNav button {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; color: var(--ink-muted); font-size: 0.66rem; font-weight: 600;
+    padding: 4px 8px; border-radius: 8px; cursor: pointer; flex: 1;
+  }
+  #mobileNav button[aria-current="page"] { color: var(--accent); }
+
+  .card {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 18px 16px; box-shadow: var(--shadow);
+  }
+  .card h3 { font-size: 0.92rem; margin-bottom: 14px; }
+
+  .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 118px 1fr 44px; align-items: center; gap: 10px; font-size: 0.82rem; }
+  .bar-row .name { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { background: var(--grid); border-radius: 4px; height: 16px; position: relative; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .bar-row .val { text-align: right; color: var(--ink); font-weight: 600; }
+
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-item { display: flex; align-items: flex-start; gap: 9px; padding: 9px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 0.83rem; }
+  .alert-item .icon { flex: none; margin-top: 1px; }
+  .alert-item .txt b { font-weight: 700; }
+  .alert-item .txt span { display: block; color: var(--ink-muted); font-size: 0.76rem; margin-top: 1px; }
+  .alert-item.warning { border-color: color-mix(in srgb, var(--warning) 35%, var(--border)); }
+  .alert-item.critical { border-color: color-mix(in srgb, var(--critical) 35%, var(--border)); }
+  .empty-note { color: var(--ink-muted); font-size: 0.85rem; padding: 6px 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-muted); font-weight: 600; padding: 0 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:hover { background: var(--accent-wash); }
+  .table-wrap { overflow-x: auto; }
+  td.num, th.num { text-align: right; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
+  .pill.stage-pendiente { background: var(--grid); color: var(--ink-2); }
+  .pill.stage-en_proceso { background: color-mix(in srgb, var(--step400) 20%, transparent); color: var(--step700); }
+  :root[data-theme="dark"] .pill.stage-en_proceso, .pill.stage-en_proceso { color: var(--step400); }
+  .pill.stage-listo { background: var(--good-wash); color: var(--good); }
+  .pill.stage-entregado { background: var(--ink); color: var(--surface); }
+  .pill.sev-good { background: var(--good-wash); color: var(--good); }
+  .pill.sev-warning { background: var(--warning-wash); color: var(--warning); }
+  .pill.sev-critical { background: var(--critical-wash); color: var(--critical); }
+  .pill svg { flex: none; }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .toolbar select, .toolbar input[type="search"] {
+    background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 7px 10px; font-size: 0.83rem; color: var(--ink);
+  }
+  .spacer { flex: 1; }
+
+  dialog {
+    border: 1px solid var(--border-strong); border-radius: 14px; padding: 0;
+    background: var(--surface-raised); color: var(--ink); width: min(480px, 92vw);
+    box-shadow: var(--shadow);
+  }
+  dialog::backdrop { background: rgba(11,11,11,0.45); }
+  .dialog-head { padding: 18px 20px 4px; }
+  .dialog-body { padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 0.76rem; font-weight: 600; color: var(--ink-2); }
+  .field input, .field select, .field textarea {
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px;
+    padding: 8px 10px; font: inherit; color: var(--ink);
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 18px; border-top: 1px solid var(--border); margin-top: 4px; }
+
+  .toast-wrap { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+  .toast { background: var(--ink); color: var(--surface); padding: 10px 15px; border-radius: 9px; font-size: 0.83rem; box-shadow: var(--shadow); }
+
+  .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .icon-btn { background: none; border: 1px solid transparent; border-radius: 6px; padding: 5px; cursor: pointer; color: var(--ink-muted); display: inline-flex; }
+  .icon-btn:hover { background: var(--accent-wash); color: var(--accent); }
+
+  .mini-bar { display: inline-flex; align-items: center; gap: 6px; width: 100%; }
+  .mini-bar .track { background: var(--grid); border-radius: 3px; height: 6px; flex: 1; overflow: hidden; }
+  .mini-bar .fill { height: 100%; border-radius: 3px; background: var(--good); }
+
+  .worker-strip { display: flex; align-items: center; gap: 8px; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-hover); display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700; flex: none; }
+
+  @media (max-width: 640px) {
+    .field-row { grid-template-columns: 1fr; }
+    .view { padding: 18px 14px 50px; }
+    .topbar { padding: 16px 14px; }
+    .bar-row { grid-template-columns: 88px 1fr 38px; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="brand">
+      <span class="mark">Panel KPI</span>
+      <span class="name" id="labNameLabel">Laboratorio Magistral</span>
+    </div>
+    <div class="nav" id="nav">
+      <button data-tab="dashboard" aria-current="page">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="8.5" width="3.5" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="6.25" y="4.5" width="3.5" height="10" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="11" y="1.5" width="3.5" height="13" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
+        Panel
+      </button>
+      <button data-tab="proyectos">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5h6M5 9.5h6M5 12.5h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Proyectos
+      </button>
+      <button data-tab="inventario">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2.5h8l1 3v6.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12V5.5l1-3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3 5.5h10M6.3 7.8c0 1 .8 1.6 1.7 1.6s1.7-.6 1.7-1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Inventario
+      </button>
+      <button data-tab="trabajadores">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.2" r="2.4" stroke="currentColor" stroke-width="1.3"/><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Trabajadores
+      </button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="titles">
+        <h1 id="viewTitle">Panel de KPIs</h1>
+        <p id="viewSubtitle">Vista general de producción, inventario y equipo</p>
+      </div>
+      <div class="actions">
+        <span class="empty-note" id="lastUpdated" style="margin-right:2px;"></span>
+        <button class="btn ghost" id="btnImport">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0-3-3m3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Importar
+        </button>
+        <input type="file" id="fileInput" accept="application/json" style="display:none">
+        <button class="btn ghost" id="btnExport">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 10V2m0 0L5 5m3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Exportar
+        </button>
+        <button class="btn ghost" id="btnRefresh" title="Actualizar">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 11.9 4.1M13.5 2v3.5H10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </header>
+    <main class="view" id="view"></main>
+  </div>
+</div>
+
+<nav class="nav" id="mobileNav" style="display:none; position:fixed; bottom:0; left:0; right:0; background:var(--surface-raised); border-top:1px solid var(--border); flex-direction:row; justify-content:space-around; padding:8px; z-index:20;"></nav>
+
+<dialog id="dlgProject">
+  <form method="dialog">
+    <div class="dialog-head"><h3 id="dlgProjectTitle">Nuevo proyecto</h3></div>
+    <div class="dialog-body">
+      <input type="hidden" id="pjId">
+      <div class="field"><label for="pjName">Fórmula / proyecto</label><input id="pjName" required placeholder="Ej. Minoxidil 5% solución capilar"></div>
+      <div class="field-row">
+        <div class="field"><label for="pjWorker">Trabajador asignado</label><select id="pjWorker" required></select></div>
+        <div class="field"><label for="pjStatus">Estado</label>
+          <select id="pjStatus">
+            <option value="pendiente">Pendiente</option>
+            <option value="en_proceso">En proceso</option>
+            <option value="listo">Listo</option>
+            <option value="entregado">Entregado</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="pjStart">Fecha inicio</label><input type="date" id="pjStart" required></div>
+        <div class="field"><label for="pjDue">Fecha entrega estimada</label><input type="date" id="pjDue" required></div>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--ink-2);">
+        <input type="checkbox" id="pjReprocessed"> Tuvo reproceso
+      </label>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn ghost" id="pjCancel">Cancelar</button>
+      <button type="submit" class="btn primary" id="pjSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgIngredient">
+  <form method="dialog">
+    <div class="dialog-head"><h3 id="dlgIngTitle">Nuevo principio activo</h3></div>
+    <div class="dialog-body">
+      <input type="hidden" id="ingId">
+      <div class="field"><label for="ingName">Nombre</label><input id="ingName" required placeholder="Ej. Minoxidil polvo"></div>
+      <div class="field-row">
+        <div class="field"><label for="ingStock">Stock actual</label><input type="number" step="0.01" id="ingStock" required></div>
+        <div class="field"><label for="ingUnit">Unidad</label><input id="ingUnit" required placeholder="g, mg, mL..."></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="ingReorder">Punto de reorden</label><input type="number" step="0.01" id="ingReorder" required></div>
+        <div class="field"><label for="ingExpiry">Vencimiento</label><input type="date" id="ingExpiry"></div>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn ghost" id="ingCancel">Cancelar</button>
+      <button type="submit" class="btn primary" id="ingSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgStockMove">
+  <form method="dialog">
+    <div class="dialog-head"><h3 id="dlgStockTitle">Registrar consumo</h3></div>
+    <div class="dialog-body">
+      <input type="hidden" id="smIngId">
+      <input type="hidden" id="smMode">
+      <div class="field"><label id="smQtyLabel" for="smQty">Cantidad</label><input type="number" step="0.01" min="0.01" id="smQty" required></div>
+      <div class="field"><label for="smNote">Nota (opcional)</label><input id="smNote" placeholder="Ej. Lote #245 / proyecto asociado"></div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn ghost" id="smCancel">Cancelar</button>
+      <button type="submit" class="btn primary">Registrar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgWorker">
+  <form method="dialog">
+    <div class="dialog-head"><h3>Nuevo trabajador</h3></div>
+    <div class="dialog-body">
+      <div class="field"><label for="wkName">Nombre</label><input id="wkName" required placeholder="Nombre completo"></div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn ghost" id="wkCancel">Cancelar</button>
+      <button type="submit" class="btn primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+(function () {
+  "use strict";
+  var STORAGE_KEY = "labKpiData.v1";
+  var state = null;
+
+  function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function addDays(iso, n) { var d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+  function fmtDate(iso) { if (!iso) return "—"; var d = new Date(iso + "T00:00:00"); return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }); }
+  function escapeHtml(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+  function byId(id) { return document.getElementById(id); }
+
+  function seedData() {
+    var w1 = uid(), w2 = uid(), w3 = uid();
+    var i1 = uid(), i2 = uid(), i3 = uid(), i4 = uid(), i5 = uid();
+    var today = todayISO();
+    return {
+      labName: "Laboratorio Magistral",
+      workers: [
+        { id: w1, name: "Camila Rojas" },
+        { id: w2, name: "Diego Fuentes" },
+        { id: w3, name: "Valentina Soto" }
+      ],
+      ingredients: [
+        { id: i1, name: "Minoxidil polvo", unit: "g", stock: 38, reorderPoint: 50, expiryDate: addDays(today, 210) },
+        { id: i2, name: "Melatonina polvo", unit: "g", stock: 120, reorderPoint: 40, expiryDate: addDays(today, 400) },
+        { id: i3, name: "Progesterona micronizada", unit: "g", stock: 9, reorderPoint: 25, expiryDate: addDays(today, 20) },
+        { id: i4, name: "Base Lipoderm", unit: "mL", stock: 0, reorderPoint: 500, expiryDate: addDays(today, 300) },
+        { id: i5, name: "Cápsulas gelatina #0", unit: "unid", stock: 1400, reorderPoint: 500, expiryDate: addDays(today, 550) }
+      ],
+      projects: [
+        { id: uid(), name: "Minoxidil 5% solución capilar", workerId: w1, startDate: addDays(today, -6), dueDate: addDays(today, -1), status: "entregado", completedDate: addDays(today, -2), reprocessed: false },
+        { id: uid(), name: "Cápsulas melatonina 3mg x60", workerId: w2, startDate: addDays(today, -4), dueDate: addDays(today, -1), status: "entregado", completedDate: addDays(today, 1), reprocessed: true },
+        { id: uid(), name: "Crema progesterona 2%", workerId: w3, startDate: addDays(today, -2), dueDate: addDays(today, 2), status: "en_proceso", completedDate: null, reprocessed: false },
+        { id: uid(), name: "Cápsulas melatonina 5mg x30", workerId: w1, startDate: addDays(today, -1), dueDate: addDays(today, 4), status: "pendiente", completedDate: null, reprocessed: false },
+        { id: uid(), name: "Loción capilar Lipoderm", workerId: w2, startDate: addDays(today, -3), dueDate: addDays(today, -1), status: "listo", completedDate: null, reprocessed: false },
+        { id: uid(), name: "Cápsulas progesterona 100mg", workerId: w3, startDate: addDays(today, -8), dueDate: addDays(today, -3), status: "entregado", completedDate: addDays(today, -3), reprocessed: false }
+      ],
+      consumption: [
+        { id: uid(), ingredientId: i1, qty: 12, date: addDays(today, -2), note: "" },
+        { id: uid(), ingredientId: i2, qty: 18, date: addDays(today, -5), note: "" },
+        { id: uid(), ingredientId: i2, qty: 9, date: addDays(today, -1), note: "" },
+        { id: uid(), ingredientId: i3, qty: 6, date: addDays(today, -6), note: "" },
+        { id: uid(), ingredientId: i5, qty: 260, date: addDays(today, -3), note: "" }
+      ]
+    };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    var seeded = seedData();
+    persist(seeded);
+    return seeded;
+  }
+  function persist(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+  function save() { persist(state); byId("lastUpdated").textContent = "Guardado " + new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); }
+
+  function toast(msg) {
+    var wrap = byId("toastWrap");
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3200);
+  }
+
+  function workerName(id) { var w = state.workers.find(function (x) { return x.id === id; }); return w ? w.name : "—"; }
+  function ingredientById(id) { return state.ingredients.find(function (x) { return x.id === id; }); }
+
+  var STAGE_LABEL = { pendiente: "Pendiente", en_proceso: "En proceso", listo: "Listo", entregado: "Entregado" };
+  function stagePill(status) {
+    return '<span class="pill stage-' + status + '">' + STAGE_LABEL[status] + "</span>";
+  }
+
+  function iconGood() { return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8.2l1.8 1.8 3.2-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  function iconWarn() { return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2.3 14.5 13.5H1.5L8 2.3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.6" r="0.9" fill="currentColor"/></svg>'; }
+  function iconCritical() { return '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11" r="0.9" fill="currentColor"/></svg>'; }
+
+  function ingredientAlerts(ing) {
+    var alerts = [];
+    var today = todayISO();
+    if (ing.stock <= 0) alerts.push({ sev: "critical", label: "Agotado" });
+    else if (ing.stock <= ing.reorderPoint) alerts.push({ sev: "warning", label: "Stock bajo" });
+    if (ing.expiryDate) {
+      if (ing.expiryDate < today) alerts.push({ sev: "critical", label: "Vencido" });
+      else if (ing.expiryDate <= addDays(today, 30)) alerts.push({ sev: "warning", label: "Vence pronto" });
+    }
+    return alerts;
+  }
+
+  function computeMetrics() {
+    var today = todayISO();
+    var projects = state.projects;
+    var active = projects.filter(function (p) { return p.status !== "entregado"; });
+    var delivered = projects.filter(function (p) { return p.status === "entregado"; });
+    var onTime = delivered.filter(function (p) { return p.completedDate && p.completedDate <= p.dueDate; });
+    var finished = projects.filter(function (p) { return p.status === "listo" || p.status === "entregado"; });
+    var reprocessed = finished.filter(function (p) { return p.reprocessed; });
+    var overdue = active.filter(function (p) { return p.dueDate < today; });
+    var invAlerts = [];
+    state.ingredients.forEach(function (ing) {
+      ingredientAlerts(ing).forEach(function (a) { invAlerts.push({ ing: ing, sev: a.sev, label: a.label }); });
+    });
+    var byStage = { pendiente: 0, en_proceso: 0, listo: 0, entregado: 0 };
+    projects.forEach(function (p) { byStage[p.status]++; });
+
+    var since = addDays(today, -30);
+    var consumeMap = {};
+    state.consumption.forEach(function (c) {
+      if (c.date >= since) consumeMap[c.ingredientId] = (consumeMap[c.ingredientId] || 0) + c.qty;
+    });
+    var topConsumption = Object.keys(consumeMap).map(function (id) {
+      var ing = ingredientById(id);
+      return { name: ing ? ing.name : "—", unit: ing ? ing.unit : "", qty: consumeMap[id] };
+    }).sort(function (a, b) { return b.qty - a.qty; }).slice(0, 6);
+
+    var workerStats = state.workers.map(function (w) {
+      var wp = projects.filter(function (p) { return p.workerId === w.id; });
+      var wDelivered = wp.filter(function (p) { return p.status === "entregado"; });
+      var wOnTime = wDelivered.filter(function (p) { return p.completedDate && p.completedDate <= p.dueDate; });
+      var wActive = wp.filter(function (p) { return p.status !== "entregado"; });
+      var wReprocessed = wp.filter(function (p) { return (p.status === "listo" || p.status === "entregado") && p.reprocessed; });
+      return {
+        worker: w,
+        completed: wDelivered.length,
+        onTimePct: wDelivered.length ? Math.round((wOnTime.length / wDelivered.length) * 100) : null,
+        active: wActive.length,
+        reprocessed: wReprocessed.length
+      };
+    }).sort(function (a, b) { return b.completed - a.completed; });
+
+    return {
+      activeCount: active.length,
+      onTimeRate: delivered.length ? Math.round((onTime.length / delivered.length) * 100) : null,
+      deliveredCount: delivered.length,
+      reprocessRate: finished.length ? Math.round((reprocessed.length / finished.length) * 100) : null,
+      finishedCount: finished.length,
+      overdue: overdue,
+      invAlerts: invAlerts,
+      byStage: byStage,
+      topConsumption: topConsumption,
+      workerStats: workerStats
+    };
+  }
+
+  // ---------- rendering ----------
+  var TABS = {
+    dashboard: { title: "Panel de KPIs", sub: "Vista general de producción, inventario y equipo" },
+    proyectos: { title: "Proyectos", sub: "Órdenes de preparación y su avance" },
+    inventario: { title: "Inventario", sub: "Principios activos, stock y vencimientos" },
+    trabajadores: { title: "Trabajadores", sub: "Desempeño individual del equipo" }
+  };
+  var currentTab = "dashboard";
+  var filters = { stage: "", worker: "", q: "" };
+
+  function render() {
+    byId("labNameLabel").textContent = state.labName || "Laboratorio Magistral";
+    byId("viewTitle").textContent = TABS[currentTab].title;
+    byId("viewSubtitle").textContent = TABS[currentTab].sub;
+    document.querySelectorAll("#nav button, #mobileNav button").forEach(function (b) {
+      if (b.dataset.tab === currentTab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    var view = byId("view");
+    if (currentTab === "dashboard") view.innerHTML = renderDashboard();
+    else if (currentTab === "proyectos") view.innerHTML = renderProyectos();
+    else if (currentTab === "inventario") view.innerHTML = renderInventario();
+    else view.innerHTML = renderTrabajadores();
+    bindViewEvents();
+  }
+
+  function renderDashboard() {
+    var m = computeMetrics();
+    var stageOrder = ["pendiente", "en_proceso", "listo", "entregado"];
+    var stageSteps = { pendiente: "var(--step250)", en_proceso: "var(--step400)", listo: "var(--step550)", entregado: "var(--step700)" };
+    var maxStage = Math.max.apply(null, stageOrder.map(function (s) { return m.byStage[s]; }).concat([1]));
+
+    var stageChart = stageOrder.map(function (s) {
+      var v = m.byStage[s];
+      var pct = Math.round((v / maxStage) * 100);
+      return '<div class="bar-row"><span class="name">' + STAGE_LABEL[s] + '</span>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:' + stageSteps[s] + ';"></div></div>' +
+        '<span class="val num">' + v + "</span></div>";
+    }).join("");
+
+    var maxQty = Math.max.apply(null, m.topConsumption.map(function (c) { return c.qty; }).concat([1]));
+    var consumeChart = m.topConsumption.length ? m.topConsumption.map(function (c) {
+      var pct = Math.round((c.qty / maxQty) * 100);
+      return '<div class="bar-row"><span class="name" title="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</span>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%; background:var(--step400);"></div></div>' +
+        '<span class="val num">' + c.qty.toFixed(0) + " " + escapeHtml(c.unit) + "</span></div>";
+    }).join("") : '<p class="empty-note">Sin consumo registrado en los últimos 30 días.</p>';
+
+    var alerts = [];
+    m.overdue.forEach(function (p) {
+      alerts.push({ sev: "critical", title: p.name, sub: "Atrasado · vencía " + fmtDate(p.dueDate) + " · " + workerName(p.workerId) });
+    });
+    m.invAlerts.forEach(function (a) {
+      alerts.push({ sev: a.sev, title: a.ing.name, sub: a.label + (a.label.indexOf("Stock") > -1 || a.label === "Agotado" ? " · " + a.ing.stock + " " + a.ing.unit + " disponible" : " · " + fmtDate(a.ing.expiryDate)) });
+    });
+    var alertList = alerts.length ? alerts.map(function (a) {
+      return '<div class="alert-item ' + a.sev + '"><span class="icon" style="color:var(--' + a.sev + ')">' + (a.sev === "critical" ? iconCritical() : iconWarn()) + '</span>' +
+        '<div class="txt"><b>' + escapeHtml(a.title) + '</b><span>' + escapeHtml(a.sub) + "</span></div></div>";
+    }).join("") : '<div class="alert-item"><span class="icon" style="color:var(--good)">' + iconGood() + '</span><div class="txt"><b>Todo en orden</b><span>Sin atrasos ni alertas de inventario.</span></div></div>';
+
+    var workerRows = m.workerStats.slice(0, 5).map(function (w) {
+      var pct = w.onTimePct == null ? 0 : w.onTimePct;
+      return "<tr><td>" + workerInitialsHtml(w.worker.name) + '</td><td class="num">' + w.completed + '</td>' +
+        '<td><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
+        '<td class="num">' + w.reprocessed + "</td></tr>";
+    }).join("");
+
+    return '' +
+      '<section><div class="tiles">' +
+        tile("Proyectos activos", m.activeCount, m.overdue.length ? m.overdue.length + " atrasado" + (m.overdue.length > 1 ? "s" : "") : "Sin atrasos", m.overdue.length > 0) +
+        tile("Entregado a tiempo", m.onTimeRate == null ? "—" : m.onTimeRate + "%", m.deliveredCount + " entregados en total", false) +
+        tile("Tasa de reproceso", m.reprocessRate == null ? "—" : m.reprocessRate + "%", m.finishedCount + " fórmulas finalizadas", m.reprocessRate > 15) +
+        tile("Alertas de inventario", m.invAlerts.length, m.invAlerts.length ? "Requieren atención" : "Todo en orden", m.invAlerts.length > 0) +
+      "</div></section>" +
+      '<section class="grid-2">' +
+        '<div class="card"><h3>Proyectos por estado</h3><div class="bar-chart">' + stageChart + "</div></div>" +
+        '<div class="card"><h3>Alertas</h3><div class="alert-list">' + alertList + "</div></div>" +
+      "</section>" +
+      '<section class="grid-2">' +
+        '<div class="card"><h3>Consumo de principios activos · últimos 30 días</h3><div class="bar-chart">' + consumeChart + "</div></div>" +
+        '<div class="card"><h3>Ranking de trabajadores</h3><div class="table-wrap"><table><thead><tr><th>Trabajador</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th></tr></thead><tbody>' +
+          (workerRows || '<tr><td colspan="4" class="empty-note">Sin trabajadores registrados.</td></tr>') +
+        "</tbody></table></div></div>" +
+      "</section>";
+  }
+
+  function tile(label, value, sub, isAlert) {
+    return '<div class="tile' + (isAlert ? " alert" : "") + '"><span class="label">' + label + '</span><span class="value num">' + value + '</span><span class="sub">' + escapeHtml(sub) + "</span></div>";
+  }
+  function workerInitials(name) { return (name || "?").split(" ").filter(Boolean).slice(0, 2).map(function (s) { return s[0]; }).join("").toUpperCase(); }
+  function workerInitialsHtml(name) { return '<div class="worker-strip"><span class="avatar">' + workerInitials(name) + '</span>' + escapeHtml(name) + "</div>"; }
+
+  function renderProyectos() {
+    var today = todayISO();
+    var list = state.projects.filter(function (p) {
+      if (filters.stage && p.status !== filters.stage) return false;
+      if (filters.worker && p.workerId !== filters.worker) return false;
+      if (filters.q && p.name.toLowerCase().indexOf(filters.q.toLowerCase()) === -1) return false;
+      return true;
+    }).sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : 1; });
+
+    var workerOpts = state.workers.map(function (w) { return '<option value="' + w.id + '"' + (filters.worker === w.id ? " selected" : "") + ">" + escapeHtml(w.name) + "</option>"; }).join("");
+
+    var rows = list.map(function (p) {
+      var overdue = p.status !== "entregado" && p.dueDate < today;
+      return "<tr>" +
+        "<td><b>" + escapeHtml(p.name) + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") + "</td>" +
+        "<td>" + escapeHtml(workerName(p.workerId)) + "</td>" +
+        '<td class="num">' + fmtDate(p.startDate) + "</td>" +
+        '<td class="num">' + fmtDate(p.dueDate) + (overdue ? ' <span class="pill sev-critical">Atrasado</span>' : "") + "</td>" +
+        "<td>" + stagePill(p.status) + "</td>" +
+        '<td><div class="row-actions">' +
+          '<button class="icon-btn" data-action="advance" data-id="' + p.id + '" title="Avanzar estado">' + advanceIcon() + "</button>" +
+          '<button class="icon-btn" data-action="edit-project" data-id="' + p.id + '" title="Editar">' + editIcon() + "</button>" +
+          '<button class="icon-btn" data-action="delete-project" data-id="' + p.id + '" title="Eliminar">' + trashIcon() + "</button>" +
+        "</div></td></tr>";
+    }).join("");
+
+    return '<section>' +
+      '<div class="toolbar">' +
+        '<select id="filterStage"><option value="">Todos los estados</option>' +
+          ["pendiente", "en_proceso", "listo", "entregado"].map(function (s) { return '<option value="' + s + '"' + (filters.stage === s ? " selected" : "") + ">" + STAGE_LABEL[s] + "</option>"; }).join("") +
+        "</select>" +
+        '<select id="filterWorker"><option value="">Todos los trabajadores</option>' + workerOpts + "</select>" +
+        '<input type="search" id="filterSearch" placeholder="Buscar fórmula…" value="' + escapeHtml(filters.q) + '">' +
+        '<span class="spacer"></span>' +
+        '<button class="btn primary" id="btnNewProject">' + plusIcon() + " Nuevo proyecto</button>" +
+      "</div>" +
+      '<div class="card table-wrap"><table><thead><tr><th>Fórmula</th><th>Trabajador</th><th>Inicio</th><th>Entrega</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="6" class="empty-note">No hay proyectos que coincidan con el filtro.</td></tr>') +
+      "</tbody></table></div>" +
+    "</section>";
+  }
+
+  function renderInventario() {
+    var list = state.ingredients.slice().sort(function (a, b) {
+      var sa = ingredientAlerts(a).length, sb = ingredientAlerts(b).length;
+      return sb - sa;
+    });
+    var rows = list.map(function (ing) {
+      var alerts = ingredientAlerts(ing);
+      var chips = alerts.length ? alerts.map(function (a) {
+        return '<span class="pill sev-' + a.sev + '">' + (a.sev === "critical" ? iconCritical() : iconWarn()) + " " + a.label + "</span>";
+      }).join(" ") : '<span class="pill sev-good">' + iconGood() + " OK</span>";
+      return "<tr>" +
+        "<td><b>" + escapeHtml(ing.name) + "</b></td>" +
+        '<td class="num">' + ing.stock + " " + escapeHtml(ing.unit) + "</td>" +
+        '<td class="num">' + ing.reorderPoint + " " + escapeHtml(ing.unit) + "</td>" +
+        '<td class="num">' + fmtDate(ing.expiryDate) + "</td>" +
+        "<td>" + chips + "</td>" +
+        '<td><div class="row-actions">' +
+          '<button class="icon-btn" data-action="consume" data-id="' + ing.id + '" title="Registrar consumo">' + minusIcon() + "</button>" +
+          '<button class="icon-btn" data-action="restock" data-id="' + ing.id + '" title="Registrar compra">' + plusIcon() + "</button>" +
+          '<button class="icon-btn" data-action="edit-ingredient" data-id="' + ing.id + '" title="Editar">' + editIcon() + "</button>" +
+          '<button class="icon-btn" data-action="delete-ingredient" data-id="' + ing.id + '" title="Eliminar">' + trashIcon() + "</button>" +
+        "</div></td></tr>";
+    }).join("");
+
+    return '<section>' +
+      '<div class="toolbar"><span class="spacer"></span><button class="btn primary" id="btnNewIngredient">' + plusIcon() + " Nuevo principio activo</button></div>" +
+      '<div class="card table-wrap"><table><thead><tr><th>Principio activo</th><th class="num">Stock</th><th class="num">Punto reorden</th><th class="num">Vencimiento</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="6" class="empty-note">Sin principios activos registrados.</td></tr>') +
+      "</tbody></table></div>" +
+    "</section>";
+  }
+
+  function renderTrabajadores() {
+    var m = computeMetrics();
+    var rows = m.workerStats.map(function (w) {
+      var pct = w.onTimePct == null ? 0 : w.onTimePct;
+      return "<tr><td>" + workerInitialsHtml(w.worker.name) + '</td><td class="num">' + w.active + '</td><td class="num">' + w.completed + '</td>' +
+        '<td><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
+        '<td class="num">' + w.reprocessed + '</td>' +
+        '<td><div class="row-actions"><button class="icon-btn" data-action="delete-worker" data-id="' + w.worker.id + '" title="Eliminar">' + trashIcon() + "</button></div></td></tr>";
+    }).join("");
+    return '<section>' +
+      '<div class="toolbar"><span class="spacer"></span><button class="btn primary" id="btnNewWorker">' + plusIcon() + " Nuevo trabajador</button></div>" +
+      '<div class="card table-wrap"><table><thead><tr><th>Trabajador</th><th class="num">Activos</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th><th></th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="6" class="empty-note">Sin trabajadores registrados.</td></tr>') +
+      "</tbody></table></div>" +
+    "</section>";
+  }
+
+  function plusIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
+  function minusIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'; }
+  function editIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5v-3l8-8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'; }
+  function trashIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M6.5 4.5v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M4.5 4.5 5 13a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  function advanceIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 8h8M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+
+  // ---------- events ----------
+  function bindViewEvents() {
+    if (currentTab === "proyectos") {
+      byId("btnNewProject").addEventListener("click", function () { openProjectDialog(); });
+      byId("filterStage").addEventListener("change", function (e) { filters.stage = e.target.value; render(); });
+      byId("filterWorker").addEventListener("change", function (e) { filters.worker = e.target.value; render(); });
+      byId("filterSearch").addEventListener("input", function (e) { filters.q = e.target.value; render(); });
+      byId("view").addEventListener("click", handleProjectRowAction);
+    } else if (currentTab === "inventario") {
+      byId("btnNewIngredient").addEventListener("click", function () { openIngredientDialog(); });
+      byId("view").addEventListener("click", handleIngredientRowAction);
+    } else if (currentTab === "trabajadores") {
+      byId("btnNewWorker").addEventListener("click", function () { openWorkerDialog(); });
+      byId("view").addEventListener("click", handleWorkerRowAction);
+    }
+  }
+
+  function handleProjectRowAction(e) {
+    var btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    var id = btn.dataset.id, action = btn.dataset.action;
+    var p = state.projects.find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (action === "advance") {
+      var order = ["pendiente", "en_proceso", "listo", "entregado"];
+      var idx = order.indexOf(p.status);
+      if (idx < order.length - 1) {
+        p.status = order[idx + 1];
+        if (p.status === "entregado") p.completedDate = todayISO();
+        save(); render(); toast("Proyecto actualizado a “" + STAGE_LABEL[p.status] + "”");
+      }
+    } else if (action === "edit-project") { openProjectDialog(p); }
+    else if (action === "delete-project") {
+      if (confirm('¿Eliminar el proyecto "' + p.name + '"?')) {
+        state.projects = state.projects.filter(function (x) { return x.id !== id; });
+        save(); render(); toast("Proyecto eliminado");
+      }
+    }
+  }
+
+  function handleIngredientRowAction(e) {
+    var btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    var id = btn.dataset.id, action = btn.dataset.action;
+    var ing = ingredientById(id);
+    if (!ing) return;
+    if (action === "consume") openStockMoveDialog(ing, "consume");
+    else if (action === "restock") openStockMoveDialog(ing, "restock");
+    else if (action === "edit-ingredient") openIngredientDialog(ing);
+    else if (action === "delete-ingredient") {
+      if (confirm('¿Eliminar "' + ing.name + '" del inventario?')) {
+        state.ingredients = state.ingredients.filter(function (x) { return x.id !== id; });
+        save(); render(); toast("Principio activo eliminado");
+      }
+    }
+  }
+
+  function handleWorkerRowAction(e) {
+    var btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    var id = btn.dataset.id, action = btn.dataset.action;
+    if (action === "delete-worker") {
+      var hasProjects = state.projects.some(function (p) { return p.workerId === id; });
+      if (hasProjects && !confirm("Este trabajador tiene proyectos asociados. ¿Eliminarlo igualmente?")) return;
+      state.workers = state.workers.filter(function (x) { return x.id !== id; });
+      save(); render(); toast("Trabajador eliminado");
+    }
+  }
+
+  // ---- dialogs ----
+  var dlgProject = byId("dlgProject");
+  function openProjectDialog(p) {
+    byId("dlgProjectTitle").textContent = p ? "Editar proyecto" : "Nuevo proyecto";
+    byId("pjId").value = p ? p.id : "";
+    byId("pjName").value = p ? p.name : "";
+    byId("pjWorker").innerHTML = state.workers.map(function (w) { return '<option value="' + w.id + '">' + escapeHtml(w.name) + "</option>"; }).join("");
+    if (p) byId("pjWorker").value = p.workerId;
+    byId("pjStatus").value = p ? p.status : "pendiente";
+    byId("pjStart").value = p ? p.startDate : todayISO();
+    byId("pjDue").value = p ? p.dueDate : addDays(todayISO(), 3);
+    byId("pjReprocessed").checked = p ? !!p.reprocessed : false;
+    dlgProject.showModal();
+  }
+  byId("pjCancel").addEventListener("click", function () { dlgProject.close(); });
+  dlgProject.querySelector("form").addEventListener("submit", function (e) {
+    if (!state.workers.length) { e.preventDefault(); toast("Agrega un trabajador antes de crear un proyecto"); return; }
+    var id = byId("pjId").value;
+    var status = byId("pjStatus").value;
+    var existing = id ? state.projects.find(function (x) { return x.id === id; }) : null;
+    var data = {
+      id: id || uid(),
+      name: byId("pjName").value.trim(),
+      workerId: byId("pjWorker").value,
+      startDate: byId("pjStart").value,
+      dueDate: byId("pjDue").value,
+      status: status,
+      completedDate: status === "entregado" ? (existing && existing.completedDate ? existing.completedDate : todayISO()) : (existing ? existing.completedDate : null),
+      reprocessed: byId("pjReprocessed").checked
+    };
+    if (existing) { Object.assign(existing, data); } else { state.projects.push(data); }
+    save(); render(); toast(existing ? "Proyecto actualizado" : "Proyecto creado");
+  });
+
+  var dlgIngredient = byId("dlgIngredient");
+  function openIngredientDialog(ing) {
+    byId("dlgIngTitle").textContent = ing ? "Editar principio activo" : "Nuevo principio activo";
+    byId("ingId").value = ing ? ing.id : "";
+    byId("ingName").value = ing ? ing.name : "";
+    byId("ingStock").value = ing ? ing.stock : "";
+    byId("ingUnit").value = ing ? ing.unit : "";
+    byId("ingReorder").value = ing ? ing.reorderPoint : "";
+    byId("ingExpiry").value = ing ? (ing.expiryDate || "") : "";
+    dlgIngredient.showModal();
+  }
+  byId("ingCancel").addEventListener("click", function () { dlgIngredient.close(); });
+  dlgIngredient.querySelector("form").addEventListener("submit", function () {
+    var id = byId("ingId").value;
+    var existing = id ? ingredientById(id) : null;
+    var data = {
+      id: id || uid(),
+      name: byId("ingName").value.trim(),
+      stock: parseFloat(byId("ingStock").value) || 0,
+      unit: byId("ingUnit").value.trim(),
+      reorderPoint: parseFloat(byId("ingReorder").value) || 0,
+      expiryDate: byId("ingExpiry").value || null
+    };
+    if (existing) { Object.assign(existing, data); } else { state.ingredients.push(data); }
+    save(); render(); toast(existing ? "Principio activo actualizado" : "Principio activo agregado");
+  });
+
+  var dlgStock = byId("dlgStockMove");
+  function openStockMoveDialog(ing, mode) {
+    byId("dlgStockTitle").textContent = (mode === "consume" ? "Registrar consumo — " : "Registrar compra — ") + ing.name;
+    byId("smQtyLabel").textContent = "Cantidad (" + ing.unit + ")";
+    byId("smIngId").value = ing.id;
+    byId("smMode").value = mode;
+    byId("smQty").value = "";
+    byId("smNote").value = "";
+    dlgStock.showModal();
+  }
+  byId("smCancel").addEventListener("click", function () { dlgStock.close(); });
+  dlgStock.querySelector("form").addEventListener("submit", function () {
+    var ing = ingredientById(byId("smIngId").value);
+    var mode = byId("smMode").value;
+    var qty = parseFloat(byId("smQty").value) || 0;
+    if (!ing || qty <= 0) return;
+    if (mode === "consume") {
+      ing.stock = Math.max(0, ing.stock - qty);
+      state.consumption.push({ id: uid(), ingredientId: ing.id, qty: qty, date: todayISO(), note: byId("smNote").value.trim() });
+      toast("Consumo registrado: " + qty + " " + ing.unit);
+    } else {
+      ing.stock += qty;
+      toast("Compra registrada: +" + qty + " " + ing.unit);
+    }
+    save(); render();
+  });
+
+  var dlgWorker = byId("dlgWorker");
+  function openWorkerDialog() { byId("wkName").value = ""; dlgWorker.showModal(); }
+  byId("wkCancel").addEventListener("click", function () { dlgWorker.close(); });
+  dlgWorker.querySelector("form").addEventListener("submit", function () {
+    var name = byId("wkName").value.trim();
+    if (!name) return;
+    state.workers.push({ id: uid(), name: name });
+    save(); render(); toast("Trabajador agregado");
+  });
+
+  // ---------- top-level wiring ----------
+  document.querySelectorAll("#nav button").forEach(function (b) {
+    b.addEventListener("click", function () { currentTab = b.dataset.tab; render(); });
+  });
+
+  var MOBILE_ICONS = {
+    dashboard: '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="8.5" width="3.5" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="6.25" y="4.5" width="3.5" height="10" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="11" y="1.5" width="3.5" height="13" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>',
+    proyectos: '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 6.5h6M5 9.5h6M5 12.5h3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+    inventario: '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M4 2.5h8l1 3v6.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12V5.5l1-3Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3 5.5h10M6.3 7.8c0 1 .8 1.6 1.7 1.6s1.7-.6 1.7-1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+    trabajadores: '<svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.2" r="2.4" stroke="currentColor" stroke-width="1.3"/><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+  };
+  var MOBILE_LABELS = { dashboard: "Panel", proyectos: "Proyectos", inventario: "Inventario", trabajadores: "Equipo" };
+  var mobileNav = byId("mobileNav");
+  Object.keys(MOBILE_LABELS).forEach(function (tab) {
+    var b = document.createElement("button");
+    b.dataset.tab = tab;
+    b.innerHTML = MOBILE_ICONS[tab] + "<span>" + MOBILE_LABELS[tab] + "</span>";
+    b.addEventListener("click", function () { currentTab = tab; render(); });
+    mobileNav.appendChild(b);
+  });
+
+  byId("btnRefresh").addEventListener("click", function () { render(); toast("Panel actualizado"); });
+
+  byId("btnExport").addEventListener("click", function () {
+    var data = JSON.stringify(state, null, 2);
+    if (window.claude && window.claude.downloads) {
+      window.claude.downloads.save({ filename: "kpi-laboratorio-" + todayISO() + ".json", data: data })
+        .then(function () { toast("Datos exportados"); })
+        .catch(function (err) {
+          if (err && err.code === "declined") return;
+          toast("No se pudo exportar: " + (err && err.message ? err.message : "error"));
+        });
+    } else {
+      toast("Exportación no disponible en esta vista");
+    }
+  });
+
+  byId("btnImport").addEventListener("click", function () { byId("fileInput").click(); });
+  byId("fileInput").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        if (!parsed || !Array.isArray(parsed.workers) || !Array.isArray(parsed.ingredients) || !Array.isArray(parsed.projects)) {
+          throw new Error("Formato inválido");
+        }
+        if (confirm("Esto reemplazará los datos actuales con los del archivo importado. ¿Continuar?")) {
+          state = parsed;
+          if (!Array.isArray(state.consumption)) state.consumption = [];
+          save(); render(); toast("Datos importados");
+        }
+      } catch (err) {
+        toast("No se pudo importar el archivo: JSON inválido");
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(file);
+  });
+
+  // init
+  state = load();
+  render();
+})();
+</script>
