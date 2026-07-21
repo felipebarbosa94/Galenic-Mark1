@@ -174,9 +174,12 @@
     a[href]::after { content: ""; }
   }
 
-  .materials-editor { display: flex; flex-direction: column; gap: 8px; }
-  .material-row { display: grid; grid-template-columns: 1fr 90px 30px; gap: 6px; align-items: center; }
-  .material-row select, .material-row input { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 8px; font: inherit; color: var(--ink); }
+  .materials-editor { display: flex; flex-direction: column; gap: 10px; }
+  .material-row { border: 1px solid var(--border); border-radius: 10px; padding: 8px; background: var(--surface); }
+  .material-row .mr-top { display: grid; grid-template-columns: 1fr 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .material-row .mr-bottom { display: grid; grid-template-columns: 1fr 84px 1fr; gap: 6px; align-items: center; }
+  .material-row select, .material-row input { background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 8px; font: inherit; color: var(--ink); width: 100%; }
+  .material-row .mr-total { font-size: 0.76rem; color: var(--ink-muted); white-space: nowrap; text-align: right; }
   .meta-line { font-size: 0.76rem; color: var(--ink-muted); margin-top: 2px; }
   .timer-btn { display: inline-flex; align-items: center; gap: 4px; }
   .timer-btn.running { color: var(--critical); }
@@ -336,6 +339,10 @@
       <input type="hidden" id="pjId">
       <div class="field"><label for="pjName">Fórmula / proyecto</label><input id="pjName" required placeholder="Ej. Minoxidil 5% solución capilar"></div>
       <div class="field-row">
+        <div class="field"><label for="pjCommercialName">Nombre comercial (opcional)</label><input id="pjCommercialName" placeholder="Ej. PROBIOTA"></div>
+        <div class="field"><label for="pjClient">Cliente</label><input id="pjClient" placeholder="Ej. Dr. Luis"></div>
+      </div>
+      <div class="field-row">
         <div class="field"><label for="pjWorker">Trabajador asignado</label><select id="pjWorker" required></select></div>
         <div class="field"><label for="pjStatus">Estado</label>
           <select id="pjStatus">
@@ -351,8 +358,13 @@
         <div class="field"><label for="pjDue">Fecha entrega estimada</label><input type="date" id="pjDue" required></div>
       </div>
       <div class="field"><label for="pjLot">Número de lote</label><input id="pjLot" placeholder="Ej. L-2026-014"></div>
+      <div class="field-row">
+        <div class="field"><label for="pjPresentation">Presentación</label><input id="pjPresentation" placeholder="Ej. 60 cápsulas, 30 sobres, 1000 gr"></div>
+        <div class="field"><label for="pjFlavor">Sabor</label><input id="pjFlavor" placeholder="Ej. Fresa, no aplica"></div>
+      </div>
+      <div class="field"><label for="pjPieces">Número de piezas del lote</label><input type="number" step="1" min="0" id="pjPieces" placeholder="Ej. 60"></div>
       <div class="field">
-        <label>Materiales usados (receta)</label>
+        <label>Materiales usados (receta) — dosis por pieza</label>
         <div class="materials-editor" id="pjMaterialsEditor"></div>
         <button type="button" class="btn ghost" id="pjAddMaterial" style="align-self:flex-start; margin-top:2px;">+ Agregar material</button>
         <p class="meta-line" id="pjCostPreview"></p>
@@ -598,6 +610,20 @@
   }
   function fmtMoney(n) { return "$" + (n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
+  var MASS_TO_G = { mg: 0.001, g: 1, kg: 1000 };
+  function convertDose(amount, fromUnit, toUnit) {
+    if (fromUnit === toUnit) return amount;
+    if (MASS_TO_G[fromUnit] != null && MASS_TO_G[toUnit] != null) {
+      return amount * MASS_TO_G[fromUnit] / MASS_TO_G[toUnit];
+    }
+    return amount;
+  }
+  function computeMaterialQty(m, ing, pieces) {
+    if (!ing) return 0;
+    var perPiece = convertDose(m.dose || 0, m.doseUnit || "mg", ing.unit);
+    return perPiece * (pieces || 0);
+  }
+
   function deductMaterialsForProject(p) {
     if (p.materialsDeducted || !p.materials || !p.materials.length) return;
     p.materials.forEach(function (m) {
@@ -795,7 +821,10 @@
     var list = state.projects.filter(function (p) {
       if (filters.stage && p.status !== filters.stage) return false;
       if (filters.worker && p.workerId !== filters.worker) return false;
-      if (filters.q && p.name.toLowerCase().indexOf(filters.q.toLowerCase()) === -1) return false;
+      if (filters.q) {
+        var haystack = (p.name + " " + (p.commercialName || "") + " " + (p.client || "")).toLowerCase();
+        if (haystack.indexOf(filters.q.toLowerCase()) === -1) return false;
+      }
       return true;
     }).sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : 1; });
 
@@ -807,11 +836,15 @@
       var elapsed = currentTimerElapsedSec(p);
       var cost = projectCost(p);
       var metaBits = [];
+      if (p.client) metaBits.push("Cliente: " + escapeHtml(p.client));
+      if (p.presentation) metaBits.push(escapeHtml(p.presentation));
+      if (p.flavor && p.flavor.toLowerCase() !== "no aplica") metaBits.push("Sabor: " + escapeHtml(p.flavor));
       if (p.lot) metaBits.push("Lote: " + escapeHtml(p.lot));
       if (elapsed > 0) metaBits.push((running ? "⏱ " : "") + formatDuration(elapsed));
       if (cost > 0) metaBits.push(fmtMoney(cost));
+      var titleHtml = p.commercialName ? escapeHtml(p.commercialName) + '<span style="font-weight:400; color:var(--ink-muted);"> — ' + escapeHtml(p.name) + "</span>" : escapeHtml(p.name);
       return "<tr>" +
-        "<td><b>" + escapeHtml(p.name) + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") +
+        "<td><b>" + titleHtml + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") +
           (metaBits.length ? '<div class="meta-line">' + metaBits.join(" · ") + "</div>" : "") + "</td>" +
         "<td>" + escapeHtml(workerName(p.workerId)) + "</td>" +
         '<td class="num">' + fmtDate(p.startDate) + "</td>" +
@@ -995,39 +1028,59 @@
   var dlgProject = byId("dlgProject");
   var pjMaterials = [];
 
+  var DOSE_UNITS = ["mg", "g", "kg", "unid", "mL"];
+  function currentPieces() { return parseFloat(byId("pjPieces").value) || 0; }
+
   function renderMaterialsEditor() {
     var wrap = byId("pjMaterialsEditor");
     var ingOpts = state.ingredients.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
       .map(function (ing) { return '<option value="' + ing.id + '">' + escapeHtml(ing.name) + " (" + escapeHtml(ing.unit) + ")</option>"; }).join("");
+    var unitOpts = DOSE_UNITS.map(function (u) { return '<option value="' + u + '">' + u + "</option>"; }).join("");
     wrap.innerHTML = pjMaterials.length ? pjMaterials.map(function (m, idx) {
       return '<div class="material-row" data-idx="' + idx + '">' +
-        '<select data-field="ingredientId"><option value="">Selecciona un material…</option>' + ingOpts + "</select>" +
-        '<input type="number" step="0.01" min="0" data-field="qty" placeholder="Cant." value="' + (m.qty || "") + '">' +
-        '<button type="button" class="icon-btn" data-remove="' + idx + '" title="Quitar">' + trashIcon() + "</button>" +
+        '<div class="mr-top">' +
+          '<select data-field="ingredientId"><option value="">Selecciona un material…</option>' + ingOpts + "</select>" +
+          '<button type="button" class="icon-btn" data-remove="' + idx + '" title="Quitar">' + trashIcon() + "</button>" +
+        "</div>" +
+        '<div class="mr-bottom">' +
+          '<input type="number" step="0.001" min="0" data-field="dose" placeholder="Dosis por pieza" value="' + (m.dose || "") + '">' +
+          '<select data-field="doseUnit">' + unitOpts + "</select>" +
+          '<span class="mr-total" data-total="' + idx + '"></span>' +
+        "</div>" +
       "</div>";
     }).join("") : '<p class="empty-note">Sin materiales agregados a esta receta.</p>';
     Array.prototype.forEach.call(wrap.querySelectorAll(".material-row"), function (row) {
       var idx = parseInt(row.dataset.idx, 10);
-      row.querySelector("select").value = pjMaterials[idx].ingredientId || "";
+      row.querySelector('[data-field="ingredientId"]').value = pjMaterials[idx].ingredientId || "";
+      row.querySelector('[data-field="doseUnit"]').value = pjMaterials[idx].doseUnit || "mg";
     });
-    updateCostPreview();
+    updateComputedTotals();
   }
-  function updateCostPreview() {
-    var cost = pjMaterials.reduce(function (s, m) {
+  function updateComputedTotals() {
+    var pieces = currentPieces();
+    var totalCost = 0;
+    pjMaterials.forEach(function (m, idx) {
       var ing = ingredientById(m.ingredientId);
-      return s + (ing && ing.costPerUnit ? ing.costPerUnit : 0) * (m.qty || 0);
-    }, 0);
-    byId("pjCostPreview").textContent = cost > 0 ? "Costo estimado de la receta: " + fmtMoney(cost) : "";
+      var el = byId("pjMaterialsEditor").querySelector('[data-total="' + idx + '"]');
+      if (!ing || !pieces) { if (el) el.textContent = ""; return; }
+      var qty = computeMaterialQty(m, ing, pieces);
+      if (el) el.textContent = "= " + (Math.round(qty * 1000) / 1000) + " " + ing.unit + " total";
+      totalCost += qty * (ing.costPerUnit || 0);
+    });
+    byId("pjCostPreview").textContent = totalCost > 0 ? "Costo estimado del lote: " + fmtMoney(totalCost) : (pieces ? "" : "Ingresa el número de piezas para calcular cantidades y costo.");
   }
+  byId("pjPieces").addEventListener("input", updateComputedTotals);
   byId("pjMaterialsEditor").addEventListener("change", function (e) {
     var row = e.target.closest(".material-row"); if (!row) return;
     var idx = parseInt(row.dataset.idx, 10);
-    if (e.target.dataset.field === "ingredientId") { pjMaterials[idx].ingredientId = e.target.value; updateCostPreview(); }
+    if (e.target.dataset.field === "ingredientId") pjMaterials[idx].ingredientId = e.target.value;
+    else if (e.target.dataset.field === "doseUnit") pjMaterials[idx].doseUnit = e.target.value;
+    updateComputedTotals();
   });
   byId("pjMaterialsEditor").addEventListener("input", function (e) {
     var row = e.target.closest(".material-row"); if (!row) return;
     var idx = parseInt(row.dataset.idx, 10);
-    if (e.target.dataset.field === "qty") { pjMaterials[idx].qty = parseFloat(e.target.value) || 0; updateCostPreview(); }
+    if (e.target.dataset.field === "dose") { pjMaterials[idx].dose = parseFloat(e.target.value) || 0; updateComputedTotals(); }
   });
   byId("pjMaterialsEditor").addEventListener("click", function (e) {
     var btn = e.target.closest("[data-remove]"); if (!btn) return;
@@ -1035,7 +1088,7 @@
     renderMaterialsEditor();
   });
   byId("pjAddMaterial").addEventListener("click", function () {
-    pjMaterials.push({ ingredientId: "", qty: 0 });
+    pjMaterials.push({ ingredientId: "", dose: 0, doseUnit: "mg" });
     renderMaterialsEditor();
   });
 
@@ -1043,6 +1096,8 @@
     byId("dlgProjectTitle").textContent = p ? "Editar proyecto" : "Nuevo proyecto";
     byId("pjId").value = p ? p.id : "";
     byId("pjName").value = p ? p.name : "";
+    byId("pjCommercialName").value = p ? (p.commercialName || "") : "";
+    byId("pjClient").value = p ? (p.client || "") : "";
     var prodWorkers = state.workers.filter(function (w) { return w.role !== "administrativo"; });
     if (!prodWorkers.length) prodWorkers = state.workers;
     byId("pjWorker").innerHTML = prodWorkers.map(function (w) { return '<option value="' + w.id + '">' + escapeHtml(w.name) + "</option>"; }).join("");
@@ -1051,6 +1106,9 @@
     byId("pjStart").value = p ? p.startDate : todayISO();
     byId("pjDue").value = p ? p.dueDate : addDays(todayISO(), 3);
     byId("pjLot").value = p ? (p.lot || "") : "";
+    byId("pjPresentation").value = p ? (p.presentation || "") : "";
+    byId("pjFlavor").value = p ? (p.flavor || "") : "";
+    byId("pjPieces").value = p && p.pieces ? p.pieces : "";
     byId("pjReprocessed").checked = p ? !!p.reprocessed : false;
     pjMaterials = p && p.materials ? JSON.parse(JSON.stringify(p.materials)) : [];
     renderMaterialsEditor();
@@ -1063,14 +1121,23 @@
     var id = byId("pjId").value;
     var status = byId("pjStatus").value;
     var existing = id ? state.projects.find(function (x) { return x.id === id; }) : null;
-    var materials = pjMaterials.filter(function (m) { return m.ingredientId && m.qty > 0; });
+    var pieces = currentPieces();
+    var materials = pjMaterials.filter(function (m) { return m.ingredientId && m.dose > 0; }).map(function (m) {
+      var ing = ingredientById(m.ingredientId);
+      return { ingredientId: m.ingredientId, dose: m.dose, doseUnit: m.doseUnit || "mg", qty: computeMaterialQty(m, ing, pieces) };
+    });
     var data = {
       id: id || uid(),
       name: byId("pjName").value.trim(),
+      commercialName: byId("pjCommercialName").value.trim(),
+      client: byId("pjClient").value.trim(),
       workerId: byId("pjWorker").value,
       startDate: byId("pjStart").value,
       dueDate: byId("pjDue").value,
       lot: byId("pjLot").value.trim(),
+      presentation: byId("pjPresentation").value.trim(),
+      flavor: byId("pjFlavor").value.trim(),
+      pieces: pieces,
       status: status,
       completedDate: status === "entregado" ? (existing && existing.completedDate ? existing.completedDate : todayISO()) : (existing ? existing.completedDate : null),
       reprocessed: byId("pjReprocessed").checked,
@@ -1172,7 +1239,8 @@
   function printProjectTicket(p) {
     var matRows = (p.materials || []).map(function (m) {
       var ing = ingredientById(m.ingredientId);
-      return "<tr><td>" + escapeHtml(ing ? ing.name : "—") + "</td><td>" + m.qty + " " + escapeHtml(ing ? ing.unit : "") + "</td></tr>";
+      var dosePart = m.dose ? (m.dose + " " + (m.doseUnit || "mg") + " / pieza") : "—";
+      return "<tr><td>" + escapeHtml(ing ? ing.name : "—") + "</td><td>" + dosePart + "</td><td>" + (Math.round((m.qty || 0) * 1000) / 1000) + " " + escapeHtml(ing ? ing.unit : "") + "</td></tr>";
     }).join("");
     var cost = projectCost(p);
     var html = '<!doctype html><html><head><meta charset="utf-8"><title>Orden — ' + escapeHtml(p.name) + '</title>' +
@@ -1180,13 +1248,15 @@
       "</head><body>" +
       "<h1>" + escapeHtml(state.labName || "Laboratorio Magistral") + "</h1>" +
       '<p class="row lbl">Orden de preparación</p>' +
-      "<h2>" + escapeHtml(p.name) + "</h2>" +
+      "<h2>" + (p.commercialName ? escapeHtml(p.commercialName) + " — " : "") + escapeHtml(p.name) + "</h2>" +
+      '<div class="row"><b>Cliente:</b> ' + escapeHtml(p.client || "—") + "</div>" +
       '<div class="row"><b>Trabajador:</b> ' + escapeHtml(workerName(p.workerId)) + "</div>" +
-      '<div class="row"><b>Lote:</b> ' + escapeHtml(p.lot || "—") + "</div>" +
+      '<div class="row"><b>Lote:</b> ' + escapeHtml(p.lot || "—") + " &nbsp; <b>Presentación:</b> " + escapeHtml(p.presentation || "—") + " &nbsp; <b>Piezas:</b> " + (p.pieces || "—") + "</div>" +
+      '<div class="row"><b>Sabor:</b> ' + escapeHtml(p.flavor || "—") + "</div>" +
       '<div class="row"><b>Fecha inicio:</b> ' + fmtDate(p.startDate) + " &nbsp; <b>Entrega:</b> " + fmtDate(p.dueDate) + "</div>" +
       '<div class="row"><b>Estado:</b> ' + STAGE_LABEL[p.status] + "</div>" +
       (cost > 0 ? '<div class="row"><b>Costo estimado:</b> ' + fmtMoney(cost) + "</div>" : "") +
-      (matRows ? "<table><thead><tr><th>Material</th><th>Cantidad</th></tr></thead><tbody>" + matRows + "</tbody></table>" : "") +
+      (matRows ? "<table><thead><tr><th>Material</th><th>Dosis</th><th>Total del lote</th></tr></thead><tbody>" + matRows + "</tbody></table>" : "") +
       "</body></html>";
     var w = window.open("", "_blank");
     if (!w) { toast("El navegador bloqueó la ventana de impresión"); return; }
