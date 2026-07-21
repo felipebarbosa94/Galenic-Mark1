@@ -158,11 +158,32 @@
     #mobileNav { display: flex !important; }
   }
   #mobileNav button {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    background: none; border: none; color: var(--ink-muted); font-size: 0.66rem; font-weight: 600;
-    padding: 4px 8px; border-radius: 8px; cursor: pointer; flex: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    background: none; border: none; color: var(--ink-muted); font-size: 0.8rem; font-weight: 700;
+    padding: 9px 8px; border-radius: 10px; cursor: pointer; flex: 1;
   }
-  #mobileNav button[aria-current="page"] { color: var(--accent); }
+  #mobileNav button svg { width: 24px; height: 24px; }
+  #mobileNav button[aria-current="page"] { color: var(--accent); background: var(--accent-wash); }
+
+  @media print {
+    .rail, #mobileNav, .topbar .actions, dialog, .toast-wrap, .toolbar, .row-actions { display: none !important; }
+    body, .shell { display: block; background: #fff; color: #000; }
+    .main { padding-bottom: 0; }
+    .view { padding: 0; }
+    .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
+    a[href]::after { content: ""; }
+  }
+
+  .materials-editor { display: flex; flex-direction: column; gap: 8px; }
+  .material-row { display: grid; grid-template-columns: 1fr 90px 30px; gap: 6px; align-items: center; }
+  .material-row select, .material-row input { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 8px; font: inherit; color: var(--ink); }
+  .meta-line { font-size: 0.76rem; color: var(--ink-muted); margin-top: 2px; }
+  .timer-btn { display: inline-flex; align-items: center; gap: 4px; }
+  .timer-btn.running { color: var(--critical); }
+  .print-ticket { font-family: system-ui, sans-serif; padding: 24px; max-width: 480px; }
+  .print-ticket h1 { font-size: 1.3rem; margin-bottom: 4px; }
+  .print-ticket table { margin-top: 12px; }
+  .print-ticket td, .print-ticket th { border: 1px solid #ccc; padding: 6px 8px; font-size: 0.85rem; }
 
   .card {
     background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius);
@@ -293,6 +314,10 @@
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 10V2m0 0L5 5m3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 11v1.5A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           Exportar
         </button>
+        <button class="btn ghost" id="btnPrint" title="Imprimir esta vista">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4.5 6V2.5h7V6M4.5 12.5h7V9.5h-7v3ZM3 6h10a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-1V9.5h-8V11.5H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          Imprimir
+        </button>
         <button class="btn ghost" id="btnRefresh" title="Actualizar">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 8A5.5 5.5 0 1 1 11.9 4.1M13.5 2v3.5H10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -325,6 +350,13 @@
         <div class="field"><label for="pjStart">Fecha inicio</label><input type="date" id="pjStart" required></div>
         <div class="field"><label for="pjDue">Fecha entrega estimada</label><input type="date" id="pjDue" required></div>
       </div>
+      <div class="field"><label for="pjLot">Número de lote</label><input id="pjLot" placeholder="Ej. L-2026-014"></div>
+      <div class="field">
+        <label>Materiales usados (receta)</label>
+        <div class="materials-editor" id="pjMaterialsEditor"></div>
+        <button type="button" class="btn ghost" id="pjAddMaterial" style="align-self:flex-start; margin-top:2px;">+ Agregar material</button>
+        <p class="meta-line" id="pjCostPreview"></p>
+      </div>
       <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--ink-2);">
         <input type="checkbox" id="pjReprocessed"> Tuvo reproceso
       </label>
@@ -350,6 +382,7 @@
         <div class="field"><label for="ingReorder">Punto de reorden</label><input type="number" step="0.01" id="ingReorder" required></div>
         <div class="field"><label for="ingExpiry">Vencimiento</label><input type="date" id="ingExpiry"></div>
       </div>
+      <div class="field"><label for="ingCost">Costo por unidad (opcional)</label><input type="number" step="0.01" id="ingCost" placeholder="0.00"></div>
     </div>
     <div class="dialog-actions">
       <button type="button" class="btn ghost" id="ingCancel">Cancelar</button>
@@ -378,7 +411,14 @@
   <form method="dialog">
     <div class="dialog-head"><h3>Nuevo trabajador</h3></div>
     <div class="dialog-body">
+      <input type="hidden" id="wkId">
       <div class="field"><label for="wkName">Nombre</label><input id="wkName" required placeholder="Nombre completo"></div>
+      <div class="field"><label for="wkRole">Rol</label>
+        <select id="wkRole">
+          <option value="produccion">Producción</option>
+          <option value="administrativo">Administrativo</option>
+        </select>
+      </div>
     </div>
     <div class="dialog-actions">
       <button type="button" class="btn ghost" id="wkCancel">Cancelar</button>
@@ -392,7 +432,7 @@
 <script>
 (function () {
   "use strict";
-  var STORAGE_KEY = "labKpiData.v1";
+  var STORAGE_KEY = "labKpiData.v2";
   var state = null;
 
   function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
@@ -403,38 +443,110 @@
   function byId(id) { return document.getElementById(id); }
 
   function seedData() {
-    var w1 = uid(), w2 = uid(), w3 = uid();
-    var i1 = uid(), i2 = uid(), i3 = uid(), i4 = uid(), i5 = uid();
-    var today = todayISO();
     return {
       labName: "Laboratorio Magistral",
       workers: [
-        { id: w1, name: "Camila Rojas" },
-        { id: w2, name: "Diego Fuentes" },
-        { id: w3, name: "Valentina Soto" }
+        { id: uid(), name: "Israel", role: "produccion" },
+        { id: uid(), name: "Maggis", role: "produccion" },
+        { id: uid(), name: "Paola", role: "produccion" },
+        { id: uid(), name: "Felipe", role: "administrativo" },
+        { id: uid(), name: "Ramón", role: "administrativo" }
       ],
       ingredients: [
-        { id: i1, name: "Minoxidil polvo", unit: "g", stock: 38, reorderPoint: 50, expiryDate: addDays(today, 210) },
-        { id: i2, name: "Melatonina polvo", unit: "g", stock: 120, reorderPoint: 40, expiryDate: addDays(today, 400) },
-        { id: i3, name: "Progesterona micronizada", unit: "g", stock: 9, reorderPoint: 25, expiryDate: addDays(today, 20) },
-        { id: i4, name: "Base Lipoderm", unit: "mL", stock: 0, reorderPoint: 500, expiryDate: addDays(today, 300) },
-        { id: i5, name: "Cápsulas gelatina #0", unit: "unid", stock: 1400, reorderPoint: 500, expiryDate: addDays(today, 550) }
+        { id: uid(), name: "Acido Alfa Lipoico", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Aguaje polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Alcachofa Polvo (cynara cardunculus", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "arandano azul", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Arándano Azul (Vaccinium) Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Ashwagandha Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Baya de Goji Polvo", unit: "kg", stock: 6.0, reorderPoint: 1.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Berberina (agracejo) Polvo", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Beta Alanina Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Canela Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Carbonato de Calcio", unit: "kg", stock: 4.0, reorderPoint: 0.8, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Celulosa Microcristalina", unit: "kg", stock: 10.0, reorderPoint: 2.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Celulosa Microcristalina PH", unit: "kg", stock: 10.0, reorderPoint: 2.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Chía Polvo", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Citrato de Magnesio", unit: "kg", stock: 6.0, reorderPoint: 1.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Cloruro de Potasio Anhidro", unit: "kg", stock: 7.0, reorderPoint: 1.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Cloruro de Sodio Anhidro", unit: "kg", stock: 20.0, reorderPoint: 4.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Coenzima Q10 (Ubiquinona)", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Cola de Caballo Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Colágeno Hidrolizado Polvo", unit: "kg", stock: 10.0, reorderPoint: 2.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Cordyceps Polvo", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Creatina Monohidratada Malla 200", unit: "kg", stock: 5.0, reorderPoint: 1.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Cáscara de Zaragatona", unit: "kg", stock: 14.0, reorderPoint: 2.8, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Diente de León (Taraxacum Officinale) Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Dióxido de Silicio", unit: "kg", stock: 4.0, reorderPoint: 0.8, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Espirulina Polvo", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Estearato de Magnesio", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Estevia Esteviósido Extracto 90% Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Frambuesa Extracto 99%", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Glicinato de Magnesio 20%", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Goma Arábiga Polvo", unit: "kg", stock: 25.0, reorderPoint: 5.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Inositol", unit: "kg", stock: 15.0, reorderPoint: 3.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Inulina de Agave", unit: "kg", stock: 9.0, reorderPoint: 1.8, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Isoflavonas de Soya Extracto 40% Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Jengibre Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Kale Polvo", unit: "kg", stock: 6.0, reorderPoint: 1.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L- teanina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Arginina HCl", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Carnitina Base", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Glutamina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Isoleucina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Leucina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Selenio Metionina 0.50%", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "L-Triptofano", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lactobacillus Acidophilus 2.5 Billones CFU/g", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lactobacillus Acidophilus 5 Billones CFU/Gr.", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lactobacillus Gasseri 5 Billones", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lactobacillus Plantarum 5 Billones", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lactobacillus Rhamnosus 5 B Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lecitina de Soya Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "limon cascara polvo", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Limón Sabor en Polvo", unit: "kg", stock: 4.0, reorderPoint: 0.8, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Linaza Polvo", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Lserina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Melatonina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "metil sulfonil metano (MSM)", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Mezcla equilibrio 5B (mezcla probiotica)", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Muérdago Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "N-Acetil-L-Cisteina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "naranja cascara polvo", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Naranja Pulpa Polvo", unit: "kg", stock: 7.0, reorderPoint: 1.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Nopal Polvo", unit: "kg", stock: 10.0, reorderPoint: 2.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Omega 3 linaza", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Pancreatina polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Pasiflora Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Pepino Polvo", unit: "kg", stock: 10.0, reorderPoint: 2.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Pimienta Negra Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Piña Cáscara Polvo", unit: "kg", stock: 6.0, reorderPoint: 1.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Piña Pulpa Polvo", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Proteína Aislada de Soya Extracto 90%", unit: "kg", stock: 35.0, reorderPoint: 7.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Proteína de Arroz Extracto 80%", unit: "kg", stock: 10.0, reorderPoint: 2.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Raíz de Ortiga Mayor (Urtica Dioica L.) Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Reishi Hongo Polvo", unit: "kg", stock: 3.0, reorderPoint: 0.6, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Rhodiola Rosea Extracto", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Ruscus Raíz Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Semilla de Uva Extracto 95% polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Stevia Hoja Deshidratada Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Tierra Diatomea", unit: "kg", stock: 5.0, reorderPoint: 1.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Tongkat ali", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Tribulus", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Té Verde Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Valeriana Raíz Polvo", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina B12 Cianocobalamina", unit: "g", stock: 50.0, reorderPoint: 10.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina B2 Riboflavina", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina B3 (Nicotinamida)", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina B6 Piridoxina HCl", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina C Universal", unit: "kg", stock: 30.0, reorderPoint: 6.0, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina D3 100 MUI Colecalciferol", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Vitamina E 50%", unit: "kg", stock: 2.0, reorderPoint: 0.4, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Wild Yam Polvo. (Ñame silvestre )", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 },
+        { id: uid(), name: "Yerbamate", unit: "kg", stock: 1.0, reorderPoint: 0.2, expiryDate: null, costPerUnit: 0 }
       ],
-      projects: [
-        { id: uid(), name: "Minoxidil 5% solución capilar", workerId: w1, startDate: addDays(today, -6), dueDate: addDays(today, -1), status: "entregado", completedDate: addDays(today, -2), reprocessed: false },
-        { id: uid(), name: "Cápsulas melatonina 3mg x60", workerId: w2, startDate: addDays(today, -4), dueDate: addDays(today, -1), status: "entregado", completedDate: addDays(today, 1), reprocessed: true },
-        { id: uid(), name: "Crema progesterona 2%", workerId: w3, startDate: addDays(today, -2), dueDate: addDays(today, 2), status: "en_proceso", completedDate: null, reprocessed: false },
-        { id: uid(), name: "Cápsulas melatonina 5mg x30", workerId: w1, startDate: addDays(today, -1), dueDate: addDays(today, 4), status: "pendiente", completedDate: null, reprocessed: false },
-        { id: uid(), name: "Loción capilar Lipoderm", workerId: w2, startDate: addDays(today, -3), dueDate: addDays(today, -1), status: "listo", completedDate: null, reprocessed: false },
-        { id: uid(), name: "Cápsulas progesterona 100mg", workerId: w3, startDate: addDays(today, -8), dueDate: addDays(today, -3), status: "entregado", completedDate: addDays(today, -3), reprocessed: false }
-      ],
-      consumption: [
-        { id: uid(), ingredientId: i1, qty: 12, date: addDays(today, -2), note: "" },
-        { id: uid(), ingredientId: i2, qty: 18, date: addDays(today, -5), note: "" },
-        { id: uid(), ingredientId: i2, qty: 9, date: addDays(today, -1), note: "" },
-        { id: uid(), ingredientId: i3, qty: 6, date: addDays(today, -6), note: "" },
-        { id: uid(), ingredientId: i5, qty: 260, date: addDays(today, -3), note: "" }
-      ]
+      projects: [],
+      consumption: []
     };
   }
 
@@ -461,6 +573,41 @@
 
   function workerName(id) { var w = state.workers.find(function (x) { return x.id === id; }); return w ? w.name : "—"; }
   function ingredientById(id) { return state.ingredients.find(function (x) { return x.id === id; }); }
+
+  function formatDuration(totalSec) {
+    totalSec = Math.max(0, Math.round(totalSec || 0));
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    if (h > 0) return h + "h " + m + "m";
+    var s = totalSec % 60;
+    if (m > 0) return m + "m " + s + "s";
+    return s + "s";
+  }
+  function currentTimerElapsedSec(p) {
+    var acc = p.timeSpentSec || 0;
+    if (p.timerStartedAt) acc += (Date.now() - new Date(p.timerStartedAt).getTime()) / 1000;
+    return acc;
+  }
+  function projectCost(p) {
+    if (!p.materials || !p.materials.length) return 0;
+    return p.materials.reduce(function (sum, m) {
+      var ing = ingredientById(m.ingredientId);
+      var cost = ing && ing.costPerUnit ? ing.costPerUnit : 0;
+      return sum + cost * (m.qty || 0);
+    }, 0);
+  }
+  function fmtMoney(n) { return "$" + (n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function deductMaterialsForProject(p) {
+    if (p.materialsDeducted || !p.materials || !p.materials.length) return;
+    p.materials.forEach(function (m) {
+      var ing = ingredientById(m.ingredientId);
+      if (!ing || !m.qty) return;
+      ing.stock = Math.max(0, ing.stock - m.qty);
+      state.consumption.push({ id: uid(), ingredientId: ing.id, qty: m.qty, date: todayISO(), note: "Proyecto: " + p.name, projectId: p.id });
+    });
+    p.materialsDeducted = true;
+  }
 
   var STAGE_LABEL = { pendiente: "Pendiente", en_proceso: "En proceso", listo: "Listo", entregado: "Entregado" };
   function stagePill(status) {
@@ -492,6 +639,12 @@
     var finished = projects.filter(function (p) { return p.status === "listo" || p.status === "entregado"; });
     var reprocessed = finished.filter(function (p) { return p.reprocessed; });
     var overdue = active.filter(function (p) { return p.dueDate < today; });
+    var dueSoon = active.filter(function (p) { return p.dueDate >= today && p.dueDate <= addDays(today, 2); });
+    var withTime = projects.filter(function (p) { return (p.timeSpentSec || 0) > 0 && !p.timerStartedAt; });
+    var avgPrepSec = withTime.length ? withTime.reduce(function (s, p) { return s + p.timeSpentSec; }, 0) / withTime.length : null;
+    var monthPrefix = today.slice(0, 7);
+    var monthCost = projects.filter(function (p) { return p.status === "entregado" && p.completedDate && p.completedDate.slice(0, 7) === monthPrefix; })
+      .reduce(function (s, p) { return s + projectCost(p); }, 0);
     var invAlerts = [];
     state.ingredients.forEach(function (ing) {
       ingredientAlerts(ing).forEach(function (a) { invAlerts.push({ ing: ing, sev: a.sev, label: a.label }); });
@@ -531,6 +684,9 @@
       reprocessRate: finished.length ? Math.round((reprocessed.length / finished.length) * 100) : null,
       finishedCount: finished.length,
       overdue: overdue,
+      dueSoon: dueSoon,
+      avgPrepSec: avgPrepSec,
+      monthCost: monthCost,
       invAlerts: invAlerts,
       byStage: byStage,
       topConsumption: topConsumption,
@@ -589,6 +745,9 @@
     m.overdue.forEach(function (p) {
       alerts.push({ sev: "critical", title: p.name, sub: "Atrasado · vencía " + fmtDate(p.dueDate) + " · " + workerName(p.workerId) });
     });
+    m.dueSoon.forEach(function (p) {
+      alerts.push({ sev: "warning", title: p.name, sub: "Vence pronto · " + fmtDate(p.dueDate) + " · " + workerName(p.workerId) });
+    });
     m.invAlerts.forEach(function (a) {
       alerts.push({ sev: a.sev, title: a.ing.name, sub: a.label + (a.label.indexOf("Stock") > -1 || a.label === "Agotado" ? " · " + a.ing.stock + " " + a.ing.unit + " disponible" : " · " + fmtDate(a.ing.expiryDate)) });
     });
@@ -610,6 +769,8 @@
         tile("Entregado a tiempo", m.onTimeRate == null ? "—" : m.onTimeRate + "%", m.deliveredCount + " entregados en total", false) +
         tile("Tasa de reproceso", m.reprocessRate == null ? "—" : m.reprocessRate + "%", m.finishedCount + " fórmulas finalizadas", m.reprocessRate > 15) +
         tile("Alertas de inventario", m.invAlerts.length, m.invAlerts.length ? "Requieren atención" : "Todo en orden", m.invAlerts.length > 0) +
+        tile("Tiempo promedio de prep.", m.avgPrepSec == null ? "—" : formatDuration(m.avgPrepSec), m.avgPrepSec == null ? "Sin registros de cronómetro" : "Por fórmula terminada", false) +
+        tile("Costo del mes", fmtMoney(m.monthCost), "Fórmulas entregadas este mes", false) +
       "</div></section>" +
       '<section class="grid-2">' +
         '<div class="card"><h3>Proyectos por estado</h3><div class="bar-chart">' + stageChart + "</div></div>" +
@@ -642,14 +803,24 @@
 
     var rows = list.map(function (p) {
       var overdue = p.status !== "entregado" && p.dueDate < today;
+      var running = !!p.timerStartedAt;
+      var elapsed = currentTimerElapsedSec(p);
+      var cost = projectCost(p);
+      var metaBits = [];
+      if (p.lot) metaBits.push("Lote: " + escapeHtml(p.lot));
+      if (elapsed > 0) metaBits.push((running ? "⏱ " : "") + formatDuration(elapsed));
+      if (cost > 0) metaBits.push(fmtMoney(cost));
       return "<tr>" +
-        "<td><b>" + escapeHtml(p.name) + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") + "</td>" +
+        "<td><b>" + escapeHtml(p.name) + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") +
+          (metaBits.length ? '<div class="meta-line">' + metaBits.join(" · ") + "</div>" : "") + "</td>" +
         "<td>" + escapeHtml(workerName(p.workerId)) + "</td>" +
         '<td class="num">' + fmtDate(p.startDate) + "</td>" +
         '<td class="num">' + fmtDate(p.dueDate) + (overdue ? ' <span class="pill sev-critical">Atrasado</span>' : "") + "</td>" +
         "<td>" + stagePill(p.status) + "</td>" +
         '<td><div class="row-actions">' +
+          '<button class="icon-btn timer-btn' + (running ? " running" : "") + '" data-action="toggle-timer" data-id="' + p.id + '" title="' + (running ? "Detener cronómetro" : "Iniciar cronómetro") + '">' + (running ? stopIcon() : playIcon()) + "</button>" +
           '<button class="icon-btn" data-action="advance" data-id="' + p.id + '" title="Avanzar estado">' + advanceIcon() + "</button>" +
+          '<button class="icon-btn" data-action="print-project" data-id="' + p.id + '" title="Imprimir orden">' + printIcon() + "</button>" +
           '<button class="icon-btn" data-action="edit-project" data-id="' + p.id + '" title="Editar">' + editIcon() + "</button>" +
           '<button class="icon-btn" data-action="delete-project" data-id="' + p.id + '" title="Eliminar">' + trashIcon() + "</button>" +
         "</div></td></tr>";
@@ -707,15 +878,19 @@
     var m = computeMetrics();
     var rows = m.workerStats.map(function (w) {
       var pct = w.onTimePct == null ? 0 : w.onTimePct;
-      return "<tr><td>" + workerInitialsHtml(w.worker.name) + '</td><td class="num">' + w.active + '</td><td class="num">' + w.completed + '</td>' +
+      var roleTag = w.worker.role === "administrativo" ? '<span class="pill" style="background:var(--grid); color:var(--ink-2);">Administrativo</span>' : '<span class="pill stage-en_proceso">Producción</span>';
+      return "<tr><td>" + workerInitialsHtml(w.worker.name) + '</td><td>' + roleTag + '</td><td class="num">' + w.active + '</td><td class="num">' + w.completed + '</td>' +
         '<td><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
         '<td class="num">' + w.reprocessed + '</td>' +
-        '<td><div class="row-actions"><button class="icon-btn" data-action="delete-worker" data-id="' + w.worker.id + '" title="Eliminar">' + trashIcon() + "</button></div></td></tr>";
+        '<td><div class="row-actions">' +
+          '<button class="icon-btn" data-action="edit-worker" data-id="' + w.worker.id + '" title="Editar">' + editIcon() + "</button>" +
+          '<button class="icon-btn" data-action="delete-worker" data-id="' + w.worker.id + '" title="Eliminar">' + trashIcon() + "</button>" +
+        "</div></td></tr>";
     }).join("");
     return '<section>' +
       '<div class="toolbar"><span class="spacer"></span><button class="btn primary" id="btnNewWorker">' + plusIcon() + " Nuevo trabajador</button></div>" +
-      '<div class="card table-wrap"><table><thead><tr><th>Trabajador</th><th class="num">Activos</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th><th></th></tr></thead><tbody>' +
-        (rows || '<tr><td colspan="6" class="empty-note">Sin trabajadores registrados.</td></tr>') +
+      '<div class="card table-wrap"><table><thead><tr><th>Trabajador</th><th>Rol</th><th class="num">Activos</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th><th></th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="7" class="empty-note">Sin trabajadores registrados.</td></tr>') +
       "</tbody></table></div>" +
     "</section>";
   }
@@ -725,6 +900,9 @@
   function editIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5v-3l8-8Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'; }
   function trashIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M6.5 4.5v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M4.5 4.5 5 13a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-8.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
   function advanceIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 8h8M8.5 4.5 12 8l-3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  function playIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4.5 3.2v9.6a.6.6 0 0 0 .92.5l7.3-4.8a.6.6 0 0 0 0-1l-7.3-4.8a.6.6 0 0 0-.92.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>'; }
+  function stopIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="3.5" y="3.5" width="9" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4"/></svg>'; }
+  function printIcon() { return '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4.5 6V2.5h7V6M4.5 12.5h7V9.5h-7v3ZM3 6h10a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-1V9.5h-8V11.5H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>'; }
 
   // ---------- events ----------
   function bindViewEvents() {
@@ -754,10 +932,26 @@
       var idx = order.indexOf(p.status);
       if (idx < order.length - 1) {
         p.status = order[idx + 1];
-        if (p.status === "entregado") p.completedDate = todayISO();
+        if (p.status === "entregado") {
+          p.completedDate = todayISO();
+          if (p.timerStartedAt) { p.timeSpentSec = (p.timeSpentSec || 0) + (Date.now() - new Date(p.timerStartedAt).getTime()) / 1000; p.timerStartedAt = null; }
+          deductMaterialsForProject(p);
+        }
         save(); render(); toast("Proyecto actualizado a “" + STAGE_LABEL[p.status] + "”");
       }
     } else if (action === "edit-project") { openProjectDialog(p); }
+    else if (action === "print-project") { printProjectTicket(p); }
+    else if (action === "toggle-timer") {
+      if (p.timerStartedAt) {
+        p.timeSpentSec = (p.timeSpentSec || 0) + (Date.now() - new Date(p.timerStartedAt).getTime()) / 1000;
+        p.timerStartedAt = null;
+        toast("Cronómetro detenido — " + formatDuration(p.timeSpentSec));
+      } else {
+        p.timerStartedAt = new Date().toISOString();
+        toast("Cronómetro iniciado");
+      }
+      save(); render();
+    }
     else if (action === "delete-project") {
       if (confirm('¿Eliminar el proyecto "' + p.name + '"?')) {
         state.projects = state.projects.filter(function (x) { return x.id !== id; });
@@ -787,7 +981,9 @@
     var btn = e.target.closest("[data-action]");
     if (!btn) return;
     var id = btn.dataset.id, action = btn.dataset.action;
-    if (action === "delete-worker") {
+    var w = state.workers.find(function (x) { return x.id === id; });
+    if (action === "edit-worker" && w) { openWorkerDialog(w); }
+    else if (action === "delete-worker") {
       var hasProjects = state.projects.some(function (p) { return p.workerId === id; });
       if (hasProjects && !confirm("Este trabajador tiene proyectos asociados. ¿Eliminarlo igualmente?")) return;
       state.workers = state.workers.filter(function (x) { return x.id !== id; });
@@ -797,35 +993,104 @@
 
   // ---- dialogs ----
   var dlgProject = byId("dlgProject");
+  var pjMaterials = [];
+
+  function renderMaterialsEditor() {
+    var wrap = byId("pjMaterialsEditor");
+    var ingOpts = state.ingredients.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
+      .map(function (ing) { return '<option value="' + ing.id + '">' + escapeHtml(ing.name) + " (" + escapeHtml(ing.unit) + ")</option>"; }).join("");
+    wrap.innerHTML = pjMaterials.length ? pjMaterials.map(function (m, idx) {
+      return '<div class="material-row" data-idx="' + idx + '">' +
+        '<select data-field="ingredientId"><option value="">Selecciona un material…</option>' + ingOpts + "</select>" +
+        '<input type="number" step="0.01" min="0" data-field="qty" placeholder="Cant." value="' + (m.qty || "") + '">' +
+        '<button type="button" class="icon-btn" data-remove="' + idx + '" title="Quitar">' + trashIcon() + "</button>" +
+      "</div>";
+    }).join("") : '<p class="empty-note">Sin materiales agregados a esta receta.</p>';
+    Array.prototype.forEach.call(wrap.querySelectorAll(".material-row"), function (row) {
+      var idx = parseInt(row.dataset.idx, 10);
+      row.querySelector("select").value = pjMaterials[idx].ingredientId || "";
+    });
+    updateCostPreview();
+  }
+  function updateCostPreview() {
+    var cost = pjMaterials.reduce(function (s, m) {
+      var ing = ingredientById(m.ingredientId);
+      return s + (ing && ing.costPerUnit ? ing.costPerUnit : 0) * (m.qty || 0);
+    }, 0);
+    byId("pjCostPreview").textContent = cost > 0 ? "Costo estimado de la receta: " + fmtMoney(cost) : "";
+  }
+  byId("pjMaterialsEditor").addEventListener("change", function (e) {
+    var row = e.target.closest(".material-row"); if (!row) return;
+    var idx = parseInt(row.dataset.idx, 10);
+    if (e.target.dataset.field === "ingredientId") { pjMaterials[idx].ingredientId = e.target.value; updateCostPreview(); }
+  });
+  byId("pjMaterialsEditor").addEventListener("input", function (e) {
+    var row = e.target.closest(".material-row"); if (!row) return;
+    var idx = parseInt(row.dataset.idx, 10);
+    if (e.target.dataset.field === "qty") { pjMaterials[idx].qty = parseFloat(e.target.value) || 0; updateCostPreview(); }
+  });
+  byId("pjMaterialsEditor").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-remove]"); if (!btn) return;
+    pjMaterials.splice(parseInt(btn.dataset.remove, 10), 1);
+    renderMaterialsEditor();
+  });
+  byId("pjAddMaterial").addEventListener("click", function () {
+    pjMaterials.push({ ingredientId: "", qty: 0 });
+    renderMaterialsEditor();
+  });
+
   function openProjectDialog(p) {
     byId("dlgProjectTitle").textContent = p ? "Editar proyecto" : "Nuevo proyecto";
     byId("pjId").value = p ? p.id : "";
     byId("pjName").value = p ? p.name : "";
-    byId("pjWorker").innerHTML = state.workers.map(function (w) { return '<option value="' + w.id + '">' + escapeHtml(w.name) + "</option>"; }).join("");
+    var prodWorkers = state.workers.filter(function (w) { return w.role !== "administrativo"; });
+    if (!prodWorkers.length) prodWorkers = state.workers;
+    byId("pjWorker").innerHTML = prodWorkers.map(function (w) { return '<option value="' + w.id + '">' + escapeHtml(w.name) + "</option>"; }).join("");
     if (p) byId("pjWorker").value = p.workerId;
     byId("pjStatus").value = p ? p.status : "pendiente";
     byId("pjStart").value = p ? p.startDate : todayISO();
     byId("pjDue").value = p ? p.dueDate : addDays(todayISO(), 3);
+    byId("pjLot").value = p ? (p.lot || "") : "";
     byId("pjReprocessed").checked = p ? !!p.reprocessed : false;
+    pjMaterials = p && p.materials ? JSON.parse(JSON.stringify(p.materials)) : [];
+    renderMaterialsEditor();
     dlgProject.showModal();
   }
   byId("pjCancel").addEventListener("click", function () { dlgProject.close(); });
   dlgProject.querySelector("form").addEventListener("submit", function (e) {
-    if (!state.workers.length) { e.preventDefault(); toast("Agrega un trabajador antes de crear un proyecto"); return; }
+    var prodWorkers = state.workers.filter(function (w) { return w.role !== "administrativo"; });
+    if (!prodWorkers.length && !state.workers.length) { e.preventDefault(); toast("Agrega un trabajador antes de crear un proyecto"); return; }
     var id = byId("pjId").value;
     var status = byId("pjStatus").value;
     var existing = id ? state.projects.find(function (x) { return x.id === id; }) : null;
+    var materials = pjMaterials.filter(function (m) { return m.ingredientId && m.qty > 0; });
     var data = {
       id: id || uid(),
       name: byId("pjName").value.trim(),
       workerId: byId("pjWorker").value,
       startDate: byId("pjStart").value,
       dueDate: byId("pjDue").value,
+      lot: byId("pjLot").value.trim(),
       status: status,
       completedDate: status === "entregado" ? (existing && existing.completedDate ? existing.completedDate : todayISO()) : (existing ? existing.completedDate : null),
-      reprocessed: byId("pjReprocessed").checked
+      reprocessed: byId("pjReprocessed").checked,
+      materials: materials
     };
-    if (existing) { Object.assign(existing, data); } else { state.projects.push(data); }
+    var target;
+    if (existing) {
+      Object.assign(existing, data);
+      target = existing;
+    } else {
+      data.timeSpentSec = 0;
+      data.timerStartedAt = null;
+      data.materialsDeducted = false;
+      state.projects.push(data);
+      target = data;
+    }
+    if (status === "entregado") {
+      if (target.timerStartedAt) { target.timeSpentSec = (target.timeSpentSec || 0) + (Date.now() - new Date(target.timerStartedAt).getTime()) / 1000; target.timerStartedAt = null; }
+      deductMaterialsForProject(target);
+    }
     save(); render(); toast(existing ? "Proyecto actualizado" : "Proyecto creado");
   });
 
@@ -838,6 +1103,7 @@
     byId("ingUnit").value = ing ? ing.unit : "";
     byId("ingReorder").value = ing ? ing.reorderPoint : "";
     byId("ingExpiry").value = ing ? (ing.expiryDate || "") : "";
+    byId("ingCost").value = ing && ing.costPerUnit ? ing.costPerUnit : "";
     dlgIngredient.showModal();
   }
   byId("ingCancel").addEventListener("click", function () { dlgIngredient.close(); });
@@ -850,7 +1116,8 @@
       stock: parseFloat(byId("ingStock").value) || 0,
       unit: byId("ingUnit").value.trim(),
       reorderPoint: parseFloat(byId("ingReorder").value) || 0,
-      expiryDate: byId("ingExpiry").value || null
+      expiryDate: byId("ingExpiry").value || null,
+      costPerUnit: parseFloat(byId("ingCost").value) || 0
     };
     if (existing) { Object.assign(existing, data); } else { state.ingredients.push(data); }
     save(); render(); toast(existing ? "Principio activo actualizado" : "Principio activo agregado");
@@ -884,14 +1151,49 @@
   });
 
   var dlgWorker = byId("dlgWorker");
-  function openWorkerDialog() { byId("wkName").value = ""; dlgWorker.showModal(); }
+  function openWorkerDialog(w) {
+    byId("wkId").value = w ? w.id : "";
+    byId("wkName").value = w ? w.name : "";
+    byId("wkRole").value = w ? (w.role || "produccion") : "produccion";
+    dlgWorker.showModal();
+  }
   byId("wkCancel").addEventListener("click", function () { dlgWorker.close(); });
   dlgWorker.querySelector("form").addEventListener("submit", function () {
     var name = byId("wkName").value.trim();
     if (!name) return;
-    state.workers.push({ id: uid(), name: name });
-    save(); render(); toast("Trabajador agregado");
+    var id = byId("wkId").value;
+    var existing = id ? state.workers.find(function (x) { return x.id === id; }) : null;
+    if (existing) { existing.name = name; existing.role = byId("wkRole").value; }
+    else { state.workers.push({ id: uid(), name: name, role: byId("wkRole").value }); }
+    save(); render(); toast(existing ? "Trabajador actualizado" : "Trabajador agregado");
   });
+
+  // ---- printing ----
+  function printProjectTicket(p) {
+    var matRows = (p.materials || []).map(function (m) {
+      var ing = ingredientById(m.ingredientId);
+      return "<tr><td>" + escapeHtml(ing ? ing.name : "—") + "</td><td>" + m.qty + " " + escapeHtml(ing ? ing.unit : "") + "</td></tr>";
+    }).join("");
+    var cost = projectCost(p);
+    var html = '<!doctype html><html><head><meta charset="utf-8"><title>Orden — ' + escapeHtml(p.name) + '</title>' +
+      "<style>body{font-family:system-ui,sans-serif;padding:24px;color:#0b0b0b;} h1{font-size:1.25rem;margin:0 0 4px;} .row{margin:4px 0;font-size:0.9rem;} table{border-collapse:collapse;width:100%;margin-top:14px;} td,th{border:1px solid #ccc;padding:6px 8px;font-size:0.85rem;text-align:left;} .lbl{color:#666;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;}</style>" +
+      "</head><body>" +
+      "<h1>" + escapeHtml(state.labName || "Laboratorio Magistral") + "</h1>" +
+      '<p class="row lbl">Orden de preparación</p>' +
+      "<h2>" + escapeHtml(p.name) + "</h2>" +
+      '<div class="row"><b>Trabajador:</b> ' + escapeHtml(workerName(p.workerId)) + "</div>" +
+      '<div class="row"><b>Lote:</b> ' + escapeHtml(p.lot || "—") + "</div>" +
+      '<div class="row"><b>Fecha inicio:</b> ' + fmtDate(p.startDate) + " &nbsp; <b>Entrega:</b> " + fmtDate(p.dueDate) + "</div>" +
+      '<div class="row"><b>Estado:</b> ' + STAGE_LABEL[p.status] + "</div>" +
+      (cost > 0 ? '<div class="row"><b>Costo estimado:</b> ' + fmtMoney(cost) + "</div>" : "") +
+      (matRows ? "<table><thead><tr><th>Material</th><th>Cantidad</th></tr></thead><tbody>" + matRows + "</tbody></table>" : "") +
+      "</body></html>";
+    var w = window.open("", "_blank");
+    if (!w) { toast("El navegador bloqueó la ventana de impresión"); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    w.onload = function () { w.print(); };
+  }
+  byId("btnPrint").addEventListener("click", function () { window.print(); });
 
   // ---------- top-level wiring ----------
   document.querySelectorAll("#nav button").forEach(function (b) {
@@ -953,6 +1255,13 @@
     };
     reader.readAsText(file);
   });
+
+  // keep running timers' displayed elapsed time fresh
+  setInterval(function () {
+    if (currentTab !== "proyectos") return;
+    var anyRunning = state.projects.some(function (p) { return p.timerStartedAt; });
+    if (anyRunning) render();
+  }, 20000);
 
   // init
   state = load();
