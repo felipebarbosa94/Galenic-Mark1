@@ -445,7 +445,10 @@
 (function () {
   "use strict";
   var STORAGE_KEY = "labKpiData.v2";
+  var SYNC_URL = "https://script.google.com/macros/s/AKfycbw_L7IiGy6iV0iqVKP7TDGMdeEbJ71DktNtw0PuTrHmuBGPBS5C_VG9ms7NWhormIVmow/exec";
   var state = null;
+  var syncing = false;
+  var lastRemoteJSON = null;
 
   function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -562,17 +565,69 @@
     };
   }
 
-  function load() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    var seeded = seedData();
-    persist(seeded);
-    return seeded;
+  function cacheLocal(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} }
+  function loadLocalCache() {
+    try { var raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
   }
-  function persist(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
-  function save() { persist(state); byId("lastUpdated").textContent = "Guardado " + new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); }
+  function isValidState(s) { return !!(s && Array.isArray(s.workers) && Array.isArray(s.ingredients) && Array.isArray(s.projects)); }
+
+  function persistRemote(s) {
+    var json = JSON.stringify(s);
+    return fetch(SYNC_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: json })
+      .then(function () { lastRemoteJSON = json; cacheLocal(s); })
+      .catch(function (err) { cacheLocal(s); throw err; });
+  }
+
+  function load() {
+    return fetch(SYNC_URL).then(function (r) { return r.text(); }).then(function (text) {
+      var parsed;
+      try { parsed = JSON.parse(text); } catch (e) { parsed = null; }
+      if (isValidState(parsed)) {
+        if (!Array.isArray(parsed.consumption)) parsed.consumption = [];
+        lastRemoteJSON = JSON.stringify(parsed);
+        cacheLocal(parsed);
+        return parsed;
+      }
+      var seeded = seedData();
+      return persistRemote(seeded).then(function () { return seeded; }).catch(function () { return seeded; });
+    }).catch(function () {
+      toast("Sin conexión con los datos compartidos — mostrando la última copia guardada");
+      var cached = loadLocalCache();
+      return isValidState(cached) ? cached : seedData();
+    });
+  }
+
+  function stampSynced() { byId("lastUpdated").textContent = "Sincronizado " + new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); }
+
+  function save() {
+    cacheLocal(state);
+    syncing = true;
+    byId("lastUpdated").textContent = "Guardando…";
+    persistRemote(state).then(function () {
+      syncing = false;
+      stampSynced();
+    }).catch(function () {
+      syncing = false;
+      byId("lastUpdated").textContent = "Sin conexión — cambios guardados solo en este dispositivo";
+      toast("No se pudo sincronizar con el servidor compartido");
+    });
+  }
+
+  function pollRemote() {
+    if (syncing || document.querySelector("dialog[open]")) return;
+    fetch(SYNC_URL).then(function (r) { return r.text(); }).then(function (text) {
+      if (text === lastRemoteJSON) return;
+      var parsed;
+      try { parsed = JSON.parse(text); } catch (e) { return; }
+      if (!isValidState(parsed)) return;
+      if (!Array.isArray(parsed.consumption)) parsed.consumption = [];
+      lastRemoteJSON = text;
+      state = parsed;
+      cacheLocal(parsed);
+      render();
+      toast("Datos actualizados por otro usuario");
+    }).catch(function () {});
+  }
 
   function toast(msg) {
     var wrap = byId("toastWrap");
@@ -1286,7 +1341,10 @@
     mobileNav.appendChild(b);
   });
 
-  byId("btnRefresh").addEventListener("click", function () { render(); toast("Panel actualizado"); });
+  byId("btnRefresh").addEventListener("click", function () {
+    byId("lastUpdated").textContent = "Actualizando…";
+    load().then(function (s) { state = s; render(); stampSynced(); toast("Panel actualizado"); });
+  });
 
   byId("btnExport").addEventListener("click", function () {
     var data = JSON.stringify(state, null, 2);
@@ -1333,8 +1391,15 @@
     if (anyRunning) render();
   }, 20000);
 
+  // poll for changes made by other users
+  setInterval(pollRemote, 15000);
+
   // init
-  state = load();
-  render();
+  byId("lastUpdated").textContent = "Cargando…";
+  load().then(function (s) {
+    state = s;
+    render();
+    stampSynced();
+  });
 })();
 </script>
