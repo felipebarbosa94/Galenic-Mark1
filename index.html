@@ -188,6 +188,23 @@
   .print-ticket table { margin-top: 12px; }
   .print-ticket td, .print-ticket th { border: 1px solid #ccc; padding: 6px 8px; font-size: 0.85rem; }
 
+  .photo-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .photo-thumb { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); position: relative; display: block; background: var(--grid); }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-thumb .rm { position: absolute; top: 2px; right: 2px; background: rgba(11,11,11,0.6); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; line-height: 1; cursor: pointer; }
+  .history-list { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--ink-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--surface); }
+  .history-list .h-date { color: var(--ink-muted); font-size: 0.72rem; margin-right: 6px; white-space: nowrap; }
+
+  @media (max-width: 640px) {
+    .resp-table thead { display: none; }
+    .resp-table, .resp-table tbody, .resp-table tr, .resp-table td { display: block; width: 100%; }
+    .resp-table tr { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; padding: 10px 12px; background: var(--surface-raised); }
+    .resp-table tr:last-child { margin-bottom: 0; }
+    .resp-table td { border: none; padding: 5px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; }
+    .resp-table td[data-label]:not([data-label=""])::before { content: attr(data-label); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-muted); font-weight: 600; flex: none; }
+    .resp-table td:last-child { justify-content: flex-end; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--border); }
+  }
+
   .card {
     background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 18px 18px 16px; box-shadow: var(--shadow);
@@ -372,6 +389,16 @@
       <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; color:var(--ink-2);">
         <input type="checkbox" id="pjReprocessed"> Tuvo reproceso
       </label>
+      <div class="field">
+        <label>Evidencia fotográfica</label>
+        <div class="photo-list" id="pjPhotoList"></div>
+        <button type="button" class="btn ghost" id="pjAddPhoto" style="align-self:flex-start; margin-top:2px;">📷 Tomar / subir foto</button>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+      </div>
+      <div class="field" id="pjHistoryWrap" style="display:none;">
+        <label>Historial</label>
+        <div class="history-list" id="pjHistoryList"></div>
+      </div>
     </div>
     <div class="dialog-actions">
       <button type="button" class="btn ghost" id="pjCancel">Cancelar</button>
@@ -679,6 +706,11 @@
     return perPiece * (pieces || 0);
   }
 
+  function pushHistory(p, message) {
+    if (!p.history) p.history = [];
+    p.history.push({ date: new Date().toISOString(), message: message });
+  }
+
   function deductMaterialsForProject(p) {
     if (p.materialsDeducted || !p.materials || !p.materials.length) return;
     p.materials.forEach(function (m) {
@@ -688,6 +720,7 @@
       state.consumption.push({ id: uid(), ingredientId: ing.id, qty: m.qty, date: todayISO(), note: "Proyecto: " + p.name, projectId: p.id });
     });
     p.materialsDeducted = true;
+    pushHistory(p, "Se descontó materia prima del inventario");
   }
 
   var STAGE_LABEL = { pendiente: "Pendiente", en_proceso: "En proceso", listo: "Listo", entregado: "Entregado" };
@@ -783,7 +816,7 @@
     trabajadores: { title: "Trabajadores", sub: "Desempeño individual del equipo" }
   };
   var currentTab = "dashboard";
-  var filters = { stage: "", worker: "", q: "" };
+  var filters = { stage: "", worker: "", q: "", ing: "" };
 
   function render() {
     byId("labNameLabel").textContent = state.labName || "Laboratorio Magistral";
@@ -798,6 +831,14 @@
     else if (currentTab === "inventario") view.innerHTML = renderInventario();
     else view.innerHTML = renderTrabajadores();
     bindViewEvents();
+  }
+
+  function rerenderKeepFocus(inputId) {
+    var prev = byId(inputId);
+    var pos = prev ? prev.selectionStart : null;
+    render();
+    var el = byId(inputId);
+    if (el) { el.focus(); if (pos != null) el.setSelectionRange(pos, pos); }
   }
 
   function renderDashboard() {
@@ -839,9 +880,9 @@
 
     var workerRows = m.workerStats.slice(0, 5).map(function (w) {
       var pct = w.onTimePct == null ? 0 : w.onTimePct;
-      return "<tr><td>" + workerInitialsHtml(w.worker.name) + '</td><td class="num">' + w.completed + '</td>' +
-        '<td><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
-        '<td class="num">' + w.reprocessed + "</td></tr>";
+      return '<tr><td data-label="Trabajador">' + workerInitialsHtml(w.worker.name) + '</td><td class="num" data-label="Completados">' + w.completed + '</td>' +
+        '<td data-label="A tiempo"><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
+        '<td class="num" data-label="Reprocesos">' + w.reprocessed + "</td></tr>";
     }).join("");
 
     return '' +
@@ -859,7 +900,7 @@
       "</section>" +
       '<section class="grid-2">' +
         '<div class="card"><h3>Consumo de principios activos · últimos 30 días</h3><div class="bar-chart">' + consumeChart + "</div></div>" +
-        '<div class="card"><h3>Ranking de trabajadores</h3><div class="table-wrap"><table><thead><tr><th>Trabajador</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th></tr></thead><tbody>' +
+        '<div class="card"><h3>Ranking de trabajadores</h3><div class="table-wrap"><table class="resp-table"><thead><tr><th>Trabajador</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th></tr></thead><tbody>' +
           (workerRows || '<tr><td colspan="4" class="empty-note">Sin trabajadores registrados.</td></tr>') +
         "</tbody></table></div></div>" +
       "</section>";
@@ -898,14 +939,15 @@
       if (elapsed > 0) metaBits.push((running ? "⏱ " : "") + formatDuration(elapsed));
       if (cost > 0) metaBits.push(fmtMoney(cost));
       var titleHtml = p.commercialName ? escapeHtml(p.commercialName) + '<span style="font-weight:400; color:var(--ink-muted);"> — ' + escapeHtml(p.name) + "</span>" : escapeHtml(p.name);
+      var photoBadge = p.photos && p.photos.length ? ' <span class="pill" style="background:var(--grid); color:var(--ink-2);">📷 ' + p.photos.length + "</span>" : "";
       return "<tr>" +
-        "<td><b>" + titleHtml + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") +
+        '<td data-label="Fórmula"><b>' + titleHtml + "</b>" + (p.reprocessed ? ' <span class="pill sev-warning" style="margin-left:4px;">Reproceso</span>' : "") + photoBadge +
           (metaBits.length ? '<div class="meta-line">' + metaBits.join(" · ") + "</div>" : "") + "</td>" +
-        "<td>" + escapeHtml(workerName(p.workerId)) + "</td>" +
-        '<td class="num">' + fmtDate(p.startDate) + "</td>" +
-        '<td class="num">' + fmtDate(p.dueDate) + (overdue ? ' <span class="pill sev-critical">Atrasado</span>' : "") + "</td>" +
-        "<td>" + stagePill(p.status) + "</td>" +
-        '<td><div class="row-actions">' +
+        '<td data-label="Trabajador">' + escapeHtml(workerName(p.workerId)) + "</td>" +
+        '<td class="num" data-label="Inicio">' + fmtDate(p.startDate) + "</td>" +
+        '<td class="num" data-label="Entrega">' + fmtDate(p.dueDate) + (overdue ? ' <span class="pill sev-critical">Atrasado</span>' : "") + "</td>" +
+        '<td data-label="Estado">' + stagePill(p.status) + "</td>" +
+        '<td data-label=""><div class="row-actions">' +
           '<button class="icon-btn timer-btn' + (running ? " running" : "") + '" data-action="toggle-timer" data-id="' + p.id + '" title="' + (running ? "Detener cronómetro" : "Iniciar cronómetro") + '">' + (running ? stopIcon() : playIcon()) + "</button>" +
           '<button class="icon-btn" data-action="advance" data-id="' + p.id + '" title="Avanzar estado">' + advanceIcon() + "</button>" +
           '<button class="icon-btn" data-action="print-project" data-id="' + p.id + '" title="Imprimir orden">' + printIcon() + "</button>" +
@@ -924,7 +966,7 @@
         '<span class="spacer"></span>' +
         '<button class="btn primary" id="btnNewProject">' + plusIcon() + " Nuevo proyecto</button>" +
       "</div>" +
-      '<div class="card table-wrap"><table><thead><tr><th>Fórmula</th><th>Trabajador</th><th>Inicio</th><th>Entrega</th><th>Estado</th><th></th></tr></thead><tbody>' +
+      '<div class="card table-wrap"><table class="resp-table"><thead><tr><th>Fórmula</th><th>Trabajador</th><th>Inicio</th><th>Entrega</th><th>Estado</th><th></th></tr></thead><tbody>' +
         (rows || '<tr><td colspan="6" class="empty-note">No hay proyectos que coincidan con el filtro.</td></tr>') +
       "</tbody></table></div>" +
     "</section>";
@@ -935,18 +977,22 @@
       var sa = ingredientAlerts(a).length, sb = ingredientAlerts(b).length;
       return sb - sa;
     });
+    if (filters.ing) {
+      var q = filters.ing.toLowerCase();
+      list = list.filter(function (ing) { return ing.name.toLowerCase().indexOf(q) !== -1; });
+    }
     var rows = list.map(function (ing) {
       var alerts = ingredientAlerts(ing);
       var chips = alerts.length ? alerts.map(function (a) {
         return '<span class="pill sev-' + a.sev + '">' + (a.sev === "critical" ? iconCritical() : iconWarn()) + " " + a.label + "</span>";
       }).join(" ") : '<span class="pill sev-good">' + iconGood() + " OK</span>";
       return "<tr>" +
-        "<td><b>" + escapeHtml(ing.name) + "</b></td>" +
-        '<td class="num">' + ing.stock + " " + escapeHtml(ing.unit) + "</td>" +
-        '<td class="num">' + ing.reorderPoint + " " + escapeHtml(ing.unit) + "</td>" +
-        '<td class="num">' + fmtDate(ing.expiryDate) + "</td>" +
-        "<td>" + chips + "</td>" +
-        '<td><div class="row-actions">' +
+        '<td data-label="Principio activo"><b>' + escapeHtml(ing.name) + "</b></td>" +
+        '<td class="num" data-label="Stock">' + ing.stock + " " + escapeHtml(ing.unit) + "</td>" +
+        '<td class="num" data-label="Punto reorden">' + ing.reorderPoint + " " + escapeHtml(ing.unit) + "</td>" +
+        '<td class="num" data-label="Vencimiento">' + fmtDate(ing.expiryDate) + "</td>" +
+        '<td data-label="Estado">' + chips + "</td>" +
+        '<td data-label=""><div class="row-actions">' +
           '<button class="icon-btn" data-action="consume" data-id="' + ing.id + '" title="Registrar consumo">' + minusIcon() + "</button>" +
           '<button class="icon-btn" data-action="restock" data-id="' + ing.id + '" title="Registrar compra">' + plusIcon() + "</button>" +
           '<button class="icon-btn" data-action="edit-ingredient" data-id="' + ing.id + '" title="Editar">' + editIcon() + "</button>" +
@@ -955,9 +1001,13 @@
     }).join("");
 
     return '<section>' +
-      '<div class="toolbar"><span class="spacer"></span><button class="btn primary" id="btnNewIngredient">' + plusIcon() + " Nuevo principio activo</button></div>" +
-      '<div class="card table-wrap"><table><thead><tr><th>Principio activo</th><th class="num">Stock</th><th class="num">Punto reorden</th><th class="num">Vencimiento</th><th>Estado</th><th></th></tr></thead><tbody>' +
-        (rows || '<tr><td colspan="6" class="empty-note">Sin principios activos registrados.</td></tr>') +
+      '<div class="toolbar">' +
+        '<input type="search" id="filterIngredient" placeholder="Buscar materia prima…" value="' + escapeHtml(filters.ing) + '">' +
+        '<span class="spacer"></span>' +
+        '<button class="btn primary" id="btnNewIngredient">' + plusIcon() + " Nuevo principio activo</button>" +
+      "</div>" +
+      '<div class="card table-wrap"><table class="resp-table"><thead><tr><th>Principio activo</th><th class="num">Stock</th><th class="num">Punto reorden</th><th class="num">Vencimiento</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        (rows || '<tr><td colspan="6" class="empty-note">' + (filters.ing ? "Sin resultados para “" + escapeHtml(filters.ing) + "”." : "Sin principios activos registrados.") + '</td></tr>') +
       "</tbody></table></div>" +
     "</section>";
   }
@@ -967,17 +1017,17 @@
     var rows = m.workerStats.map(function (w) {
       var pct = w.onTimePct == null ? 0 : w.onTimePct;
       var roleTag = w.worker.role === "administrativo" ? '<span class="pill" style="background:var(--grid); color:var(--ink-2);">Administrativo</span>' : '<span class="pill stage-en_proceso">Producción</span>';
-      return "<tr><td>" + workerInitialsHtml(w.worker.name) + '</td><td>' + roleTag + '</td><td class="num">' + w.active + '</td><td class="num">' + w.completed + '</td>' +
-        '<td><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
-        '<td class="num">' + w.reprocessed + '</td>' +
-        '<td><div class="row-actions">' +
+      return '<tr><td data-label="Trabajador">' + workerInitialsHtml(w.worker.name) + '</td><td data-label="Rol">' + roleTag + '</td><td class="num" data-label="Activos">' + w.active + '</td><td class="num" data-label="Completados">' + w.completed + '</td>' +
+        '<td data-label="A tiempo"><div class="mini-bar"><div class="track"><div class="fill" style="width:' + pct + '%;"></div></div><span class="num" style="font-size:0.78rem;">' + (w.onTimePct == null ? "—" : pct + "%") + '</span></div></td>' +
+        '<td class="num" data-label="Reprocesos">' + w.reprocessed + '</td>' +
+        '<td data-label=""><div class="row-actions">' +
           '<button class="icon-btn" data-action="edit-worker" data-id="' + w.worker.id + '" title="Editar">' + editIcon() + "</button>" +
           '<button class="icon-btn" data-action="delete-worker" data-id="' + w.worker.id + '" title="Eliminar">' + trashIcon() + "</button>" +
         "</div></td></tr>";
     }).join("");
     return '<section>' +
       '<div class="toolbar"><span class="spacer"></span><button class="btn primary" id="btnNewWorker">' + plusIcon() + " Nuevo trabajador</button></div>" +
-      '<div class="card table-wrap"><table><thead><tr><th>Trabajador</th><th>Rol</th><th class="num">Activos</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th><th></th></tr></thead><tbody>' +
+      '<div class="card table-wrap"><table class="resp-table"><thead><tr><th>Trabajador</th><th>Rol</th><th class="num">Activos</th><th class="num">Completados</th><th>A tiempo</th><th class="num">Reprocesos</th><th></th></tr></thead><tbody>' +
         (rows || '<tr><td colspan="7" class="empty-note">Sin trabajadores registrados.</td></tr>') +
       "</tbody></table></div>" +
     "</section>";
@@ -998,10 +1048,11 @@
       byId("btnNewProject").addEventListener("click", function () { openProjectDialog(); });
       byId("filterStage").addEventListener("change", function (e) { filters.stage = e.target.value; render(); });
       byId("filterWorker").addEventListener("change", function (e) { filters.worker = e.target.value; render(); });
-      byId("filterSearch").addEventListener("input", function (e) { filters.q = e.target.value; render(); });
+      byId("filterSearch").addEventListener("input", function (e) { filters.q = e.target.value; rerenderKeepFocus("filterSearch"); });
       byId("view").addEventListener("click", handleProjectRowAction);
     } else if (currentTab === "inventario") {
       byId("btnNewIngredient").addEventListener("click", function () { openIngredientDialog(); });
+      byId("filterIngredient").addEventListener("input", function (e) { filters.ing = e.target.value; rerenderKeepFocus("filterIngredient"); });
       byId("view").addEventListener("click", handleIngredientRowAction);
     } else if (currentTab === "trabajadores") {
       byId("btnNewWorker").addEventListener("click", function () { openWorkerDialog(); });
@@ -1019,12 +1070,13 @@
       var order = ["pendiente", "en_proceso", "listo", "entregado"];
       var idx = order.indexOf(p.status);
       if (idx < order.length - 1) {
+        pushHistory(p, "Cambió a “" + STAGE_LABEL[order[idx + 1]] + "”");
         p.status = order[idx + 1];
         if (p.status === "entregado") {
           p.completedDate = todayISO();
           if (p.timerStartedAt) { p.timeSpentSec = (p.timeSpentSec || 0) + (Date.now() - new Date(p.timerStartedAt).getTime()) / 1000; p.timerStartedAt = null; }
-          deductMaterialsForProject(p);
         }
+        if (p.status !== "pendiente") deductMaterialsForProject(p);
         save(); render(); toast("Proyecto actualizado a “" + STAGE_LABEL[p.status] + "”");
       }
     } else if (action === "edit-project") { openProjectDialog(p); }
@@ -1082,6 +1134,66 @@
   // ---- dialogs ----
   var dlgProject = byId("dlgProject");
   var pjMaterials = [];
+  var pjPhotos = [];
+
+  function renderPhotoList() {
+    var wrap = byId("pjPhotoList");
+    wrap.innerHTML = pjPhotos.map(function (ph, idx) {
+      return '<div class="photo-thumb"><a href="' + ph.url + '" target="_blank" rel="noopener"><img src="' + (ph.thumbUrl || ph.url) + '" alt="Evidencia"></a>' +
+        '<button type="button" class="rm" data-photo-remove="' + idx + '" title="Quitar">×</button></div>';
+    }).join("");
+  }
+  byId("pjPhotoList").addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-photo-remove]");
+    if (!btn) return;
+    pjPhotos.splice(parseInt(btn.dataset.photoRemove, 10), 1);
+    renderPhotoList();
+  });
+
+  function compressImage(file, maxDim, quality) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var img = new Image();
+        img.onload = function () {
+          var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          var canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  byId("pjAddPhoto").addEventListener("click", function () { byId("photoInput").click(); });
+  byId("photoInput").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    toast("Subiendo foto…");
+    compressImage(file, 1280, 0.7).then(function (base64) {
+      return fetch(SYNC_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "uploadPhoto", data: base64, mimeType: "image/jpeg", filename: "evidencia_" + Date.now() + ".jpg" })
+      });
+    }).then(function (r) { return r.text(); }).then(function (text) {
+      var result = JSON.parse(text);
+      if (!result || !result.url) throw new Error("bad response");
+      pjPhotos.push({ url: result.url, thumbUrl: result.thumbUrl || result.url, date: new Date().toISOString() });
+      renderPhotoList();
+      toast("Foto agregada");
+    }).catch(function () {
+      toast("No se pudo subir la foto — revisa tu conexión");
+    });
+  });
 
   var DOSE_UNITS = ["mg", "g", "kg", "unid", "mL"];
   function currentPieces() { return parseFloat(byId("pjPieces").value) || 0; }
@@ -1147,6 +1259,20 @@
     renderMaterialsEditor();
   });
 
+  function generateLotNumber() {
+    var prefix = "L-" + todayISO().replace(/-/g, "") + "-";
+    var maxN = 0;
+    state.projects.forEach(function (p) {
+      if (p.lot && p.lot.indexOf(prefix) === 0) {
+        var n = parseInt(p.lot.slice(prefix.length), 10);
+        if (!isNaN(n) && n > maxN) maxN = n;
+      }
+    });
+    var next = String(maxN + 1);
+    while (next.length < 3) next = "0" + next;
+    return prefix + next;
+  }
+
   function openProjectDialog(p) {
     byId("dlgProjectTitle").textContent = p ? "Editar proyecto" : "Nuevo proyecto";
     byId("pjId").value = p ? p.id : "";
@@ -1160,13 +1286,23 @@
     byId("pjStatus").value = p ? p.status : "pendiente";
     byId("pjStart").value = p ? p.startDate : todayISO();
     byId("pjDue").value = p ? p.dueDate : addDays(todayISO(), 3);
-    byId("pjLot").value = p ? (p.lot || "") : "";
+    byId("pjLot").value = p ? (p.lot || "") : generateLotNumber();
     byId("pjPresentation").value = p ? (p.presentation || "") : "";
     byId("pjFlavor").value = p ? (p.flavor || "") : "";
     byId("pjPieces").value = p && p.pieces ? p.pieces : "";
     byId("pjReprocessed").checked = p ? !!p.reprocessed : false;
     pjMaterials = p && p.materials ? JSON.parse(JSON.stringify(p.materials)) : [];
     renderMaterialsEditor();
+    pjPhotos = p && p.photos ? JSON.parse(JSON.stringify(p.photos)) : [];
+    renderPhotoList();
+    if (p && p.history && p.history.length) {
+      byId("pjHistoryWrap").style.display = "";
+      byId("pjHistoryList").innerHTML = p.history.slice().reverse().map(function (h) {
+        return '<div><span class="h-date">' + fmtDate(h.date.slice(0, 10)) + " " + new Date(h.date).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) + "</span>" + escapeHtml(h.message) + "</div>";
+      }).join("");
+    } else {
+      byId("pjHistoryWrap").style.display = "none";
+    }
     dlgProject.showModal();
   }
   byId("pjCancel").addEventListener("click", function () { dlgProject.close(); });
@@ -1196,23 +1332,30 @@
       status: status,
       completedDate: status === "entregado" ? (existing && existing.completedDate ? existing.completedDate : todayISO()) : (existing ? existing.completedDate : null),
       reprocessed: byId("pjReprocessed").checked,
-      materials: materials
+      materials: materials,
+      photos: pjPhotos
     };
     var target;
+    var prevStatus = existing ? existing.status : null;
     if (existing) {
       Object.assign(existing, data);
       target = existing;
+      if (prevStatus !== status) pushHistory(target, "Cambió a “" + STAGE_LABEL[status] + "”");
+      else pushHistory(target, "Editado");
     } else {
       data.timeSpentSec = 0;
       data.timerStartedAt = null;
       data.materialsDeducted = false;
+      data.history = [];
       state.projects.push(data);
       target = data;
+      pushHistory(target, "Proyecto creado (" + STAGE_LABEL[status] + ")");
     }
-    if (status === "entregado") {
-      if (target.timerStartedAt) { target.timeSpentSec = (target.timeSpentSec || 0) + (Date.now() - new Date(target.timerStartedAt).getTime()) / 1000; target.timerStartedAt = null; }
-      deductMaterialsForProject(target);
+    if (status === "entregado" && target.timerStartedAt) {
+      target.timeSpentSec = (target.timeSpentSec || 0) + (Date.now() - new Date(target.timerStartedAt).getTime()) / 1000;
+      target.timerStartedAt = null;
     }
+    if (status !== "pendiente") deductMaterialsForProject(target);
     save(); render(); toast(existing ? "Proyecto actualizado" : "Proyecto creado");
   });
 
@@ -1312,6 +1455,7 @@
       '<div class="row"><b>Estado:</b> ' + STAGE_LABEL[p.status] + "</div>" +
       (cost > 0 ? '<div class="row"><b>Costo estimado:</b> ' + fmtMoney(cost) + "</div>" : "") +
       (matRows ? "<table><thead><tr><th>Material</th><th>Dosis</th><th>Total del lote</th></tr></thead><tbody>" + matRows + "</tbody></table>" : "") +
+      (p.photos && p.photos.length ? '<div class="row"><b>Evidencia fotográfica:</b> ' + p.photos.map(function (ph, i) { return '<a href="' + ph.url + '" target="_blank">Foto ' + (i + 1) + "</a>"; }).join(", ") + "</div>" : "") +
       "</body></html>";
     var w = window.open("", "_blank");
     if (!w) { toast("El navegador bloqueó la ventana de impresión"); return; }
